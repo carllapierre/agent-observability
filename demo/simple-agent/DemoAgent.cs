@@ -1,36 +1,20 @@
-using OpenAI.Chat;
-using SimpleAgent.CLI;
+using AgentCLI;
+using SimpleAgent.Providers;
 
 namespace SimpleAgent;
 
 /// <summary>
-/// Demo chat agent implementation using OpenAI.
-/// Maintains conversation history state for contextual responses.
+/// Demo chat agent implementation.
+/// Provider-agnostic - receives any IProviderClient via dependency injection.
 /// </summary>
 public class DemoAgent : IChatAgent
 {
-    private readonly ChatClient _client;
-    private readonly List<ChatMessage> _conversationHistory;
+    private readonly IProviderClient _client;
 
-    public DemoAgent(string apiKey, string model = "gpt-4o-mini")
+    public DemoAgent(IProviderClient client)
     {
-        _client = new ChatClient(model, apiKey);
-        _conversationHistory = new List<ChatMessage>();
+        _client = client;
     }
 
-    public async Task<string> GetResponseAsync(string userInput)
-    {
-        // Add user message to conversation history
-        _conversationHistory.Add(new UserChatMessage(userInput));
-        
-        // Get response from OpenAI
-        ChatCompletion completion = await _client.CompleteChatAsync(_conversationHistory);
-        var response = completion.Content[0].Text;
-        
-        // Add assistant response to conversation history
-        _conversationHistory.Add(new AssistantChatMessage(response));
-        
-        return response;
-    }
+    public Task<string> GetResponseAsync(string userInput) => _client.GetResponseAsync(userInput);
 }
-

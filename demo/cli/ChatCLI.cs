@@ -1,8 +1,8 @@
-using SimpleAgent.CLI.Constants;
-using SimpleAgent.CLI.Helpers;
+using AgentCLI.Constants;
+using AgentCLI.Helpers;
 using Spectre.Console;
 
-namespace SimpleAgent.CLI;
+namespace AgentCLI;
 
 /// <summary>
 /// Handles the command-line interface for chatting with an agent.
@@ -82,3 +82,4 @@ public class ChatCLI
             input.Equals(keyword, StringComparison.OrdinalIgnoreCase));
     }
 }
+

@@ -1,4 +1,4 @@
-namespace SimpleAgent.Configuration;
+namespace SimpleAgent.Providers.OpenAI;
 
 /// <summary>
 /// OpenAI configuration settings.

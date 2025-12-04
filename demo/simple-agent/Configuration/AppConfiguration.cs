@@ -1,5 +1,8 @@
+﻿using AgentCLI;
 using Microsoft.Extensions.Configuration;
-using SimpleAgent.CLI;
+using SimpleAgent.Providers;
+using SimpleAgent.Providers.Google;
+using SimpleAgent.Providers.OpenAI;
 
 namespace SimpleAgent.Configuration;
 
@@ -8,7 +11,9 @@ namespace SimpleAgent.Configuration;
 /// </summary>
 public class AppConfiguration
 {
+    public ProviderType Provider { get; private set; } = ProviderType.OpenAI;
     public OpenAISettings OpenAI { get; private set; } = new();
+    public GoogleSettings Google { get; private set; } = new();
     public CLISettings CLI { get; private set; } = new();
 
     /// <summary>
@@ -23,15 +28,35 @@ public class AppConfiguration
             .Build();
 
         var appConfig = new AppConfiguration();
+        
+        // Parse provider type
+        var providerString = configuration["Provider"] ?? "OpenAI";
+        if (Enum.TryParse<ProviderType>(providerString, ignoreCase: true, out var provider))
+        {
+            appConfig.Provider = provider;
+        }
+        
         configuration.GetSection("OpenAI").Bind(appConfig.OpenAI);
+        configuration.GetSection("Google").Bind(appConfig.Google);
         configuration.GetSection("CLI").Bind(appConfig.CLI);
 
-        if (string.IsNullOrWhiteSpace(appConfig.OpenAI.ApiKey))
+        // Validate API key based on selected provider
+        switch (appConfig.Provider)
         {
-            throw new InvalidOperationException("OpenAI API key not found. Please set it in appsettings.local.json");
+            case ProviderType.OpenAI:
+                if (string.IsNullOrWhiteSpace(appConfig.OpenAI.ApiKey))
+                {
+                    throw new InvalidOperationException("OpenAI API key not found. Please set it in appsettings.local.json");
+                }
+                break;
+            case ProviderType.Google:
+                if (string.IsNullOrWhiteSpace(appConfig.Google.ApiKey))
+                {
+                    throw new InvalidOperationException("Google API key not found. Please set it in appsettings.local.json");
+                }
+                break;
         }
 
         return appConfig;
     }
 }
-

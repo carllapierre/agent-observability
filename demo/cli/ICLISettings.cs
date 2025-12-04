@@ -1,4 +1,4 @@
-namespace SimpleAgent.CLI;
+namespace AgentCLI;
 
 /// <summary>
 /// Interface for CLI configuration settings.

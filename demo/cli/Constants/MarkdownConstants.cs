@@ -1,4 +1,4 @@
-namespace SimpleAgent.CLI.Constants;
+namespace AgentCLI.Constants;
 
 public static class MarkdownConstants
 {

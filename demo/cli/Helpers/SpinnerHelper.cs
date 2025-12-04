@@ -1,4 +1,4 @@
-namespace SimpleAgent.CLI.Helpers;
+namespace AgentCLI.Helpers;
 
 public static class SpinnerHelper
 {

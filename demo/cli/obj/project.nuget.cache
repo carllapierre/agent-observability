@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "ZKhQPBgk5Ms=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\carl_\\agent-observability\\demo\\cli\\AgentCLI.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\carl_\\.nuget\\packages\\spectre.console\\0.49.1\\spectre.console.0.49.1.nupkg.sha512"
+  ],
+  "logs": []
+}

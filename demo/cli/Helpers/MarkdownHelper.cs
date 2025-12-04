@@ -1,8 +1,8 @@
 using Spectre.Console;
 using System.Text.RegularExpressions;
-using SimpleAgent.CLI.Constants;
+using AgentCLI.Constants;
 
-namespace SimpleAgent.CLI.Helpers;
+namespace AgentCLI.Helpers;
 
 public static class MarkdownHelper
 {
@@ -102,3 +102,4 @@ public static class MarkdownHelper
         return result;
     }
 }
+

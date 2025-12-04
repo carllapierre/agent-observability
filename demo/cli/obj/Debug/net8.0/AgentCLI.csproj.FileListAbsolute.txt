@@ -1,0 +1,13 @@
+C:\Users\carl_\agent-observability\demo\cli\bin\Debug\net8.0\AgentCLI.deps.json
+C:\Users\carl_\agent-observability\demo\cli\bin\Debug\net8.0\AgentCLI.dll
+C:\Users\carl_\agent-observability\demo\cli\bin\Debug\net8.0\AgentCLI.pdb
+C:\Users\carl_\agent-observability\demo\cli\obj\Debug\net8.0\AgentCLI.csproj.AssemblyReference.cache
+C:\Users\carl_\agent-observability\demo\cli\obj\Debug\net8.0\AgentCLI.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\carl_\agent-observability\demo\cli\obj\Debug\net8.0\AgentCLI.AssemblyInfoInputs.cache
+C:\Users\carl_\agent-observability\demo\cli\obj\Debug\net8.0\AgentCLI.AssemblyInfo.cs
+C:\Users\carl_\agent-observability\demo\cli\obj\Debug\net8.0\AgentCLI.csproj.CoreCompileInputs.cache
+C:\Users\carl_\agent-observability\demo\cli\obj\Debug\net8.0\AgentCLI.sourcelink.json
+C:\Users\carl_\agent-observability\demo\cli\obj\Debug\net8.0\AgentCLI.dll
+C:\Users\carl_\agent-observability\demo\cli\obj\Debug\net8.0\refint\AgentCLI.dll
+C:\Users\carl_\agent-observability\demo\cli\obj\Debug\net8.0\AgentCLI.pdb
+C:\Users\carl_\agent-observability\demo\cli\obj\Debug\net8.0\ref\AgentCLI.dll

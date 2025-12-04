@@ -1,4 +1,4 @@
-namespace SimpleAgent.CLI;
+namespace AgentCLI;
 
 /// <summary>
 /// Interface for a chat agent that processes user input and generates responses.
