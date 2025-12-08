@@ -1,8 +1,7 @@
 ﻿using AgentCLI;
 using Microsoft.Extensions.Configuration;
-using SimpleAgent.Providers;
-using SimpleAgent.Providers.Google;
-using SimpleAgent.Providers.OpenAI;
+using SimpleAgent.Core.ChatCompletion.Models;
+using SimpleAgent.Providers.ChatCompletion.OpenAI;
 
 namespace SimpleAgent.Configuration;
 
@@ -11,9 +10,8 @@ namespace SimpleAgent.Configuration;
 /// </summary>
 public class AppConfiguration
 {
-    public ProviderType Provider { get; private set; } = ProviderType.OpenAI;
+    public ChatCompletionProviderType Provider { get; private set; } = ChatCompletionProviderType.OpenAI;
     public OpenAISettings OpenAI { get; private set; } = new();
-    public GoogleSettings Google { get; private set; } = new();
     public CLISettings CLI { get; private set; } = new();
 
     /// <summary>
@@ -28,33 +26,21 @@ public class AppConfiguration
             .Build();
 
         var appConfig = new AppConfiguration();
-        
+
         // Parse provider type
         var providerString = configuration["Provider"] ?? "OpenAI";
-        if (Enum.TryParse<ProviderType>(providerString, ignoreCase: true, out var provider))
+        if (Enum.TryParse<ChatCompletionProviderType>(providerString, ignoreCase: true, out var provider))
         {
             appConfig.Provider = provider;
         }
-        
+
         configuration.GetSection("OpenAI").Bind(appConfig.OpenAI);
-        configuration.GetSection("Google").Bind(appConfig.Google);
         configuration.GetSection("CLI").Bind(appConfig.CLI);
 
-        // Validate API key based on selected provider
-        switch (appConfig.Provider)
+        // Validate API key
+        if (string.IsNullOrWhiteSpace(appConfig.OpenAI.ApiKey))
         {
-            case ProviderType.OpenAI:
-                if (string.IsNullOrWhiteSpace(appConfig.OpenAI.ApiKey))
-                {
-                    throw new InvalidOperationException("OpenAI API key not found. Please set it in appsettings.local.json");
-                }
-                break;
-            case ProviderType.Google:
-                if (string.IsNullOrWhiteSpace(appConfig.Google.ApiKey))
-                {
-                    throw new InvalidOperationException("Google API key not found. Please set it in appsettings.local.json");
-                }
-                break;
+            throw new InvalidOperationException("OpenAI API key not found. Please set it in appsettings.local.json");
         }
 
         return appConfig;

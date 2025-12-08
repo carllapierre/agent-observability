@@ -1,4 +1,4 @@
-namespace SimpleAgent.Providers.OpenAI;
+namespace SimpleAgent.Providers.ChatCompletion.OpenAI;
 
 /// <summary>
 /// OpenAI configuration settings.

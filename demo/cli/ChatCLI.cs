@@ -71,7 +71,7 @@ public class ChatCLI
         catch (Exception ex)
         {
             AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine($"[{ColorConstants.Error}]{MessageConstants.ErrorPrefix}[/]{MessageConstants.Delimiter}[{ColorConstants.Error}]{ex.Message}[/]");
+            AnsiConsole.MarkupLine($"[{ColorConstants.Error}]{MessageConstants.ErrorPrefix}[/]{MessageConstants.Delimiter}[{ColorConstants.Error}]{ex.Message.EscapeMarkup()}[/]");
             AnsiConsole.WriteLine();
         }
     }

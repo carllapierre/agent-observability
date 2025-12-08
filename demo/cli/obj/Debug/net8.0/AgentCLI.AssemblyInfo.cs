@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AgentCLI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c498c1bca63ea6d6afc3f0e608d7a069608e6cf0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d3f3510b7754c802bb43aa71a3541bce4eb76057")]
 [assembly: System.Reflection.AssemblyProductAttribute("AgentCLI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AgentCLI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
