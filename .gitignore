@@ -1,0 +1,30 @@
+# Build results
+bin/
+obj/
+
+# Local environment configs
+appsettings.local.json
+*.local.json
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio cache/options directory
+.vs/
+
+# IDE
+.vscode/
+.idea/
+
+# NuGet
+*.nupkg
+.nuget/
+packages/
+
+# OS
+.DS_Store
+Thumbs.db
+
