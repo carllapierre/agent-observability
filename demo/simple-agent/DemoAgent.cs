@@ -21,7 +21,7 @@ public class DemoAgent : IChatAgent
     private const string ChatCompletionProviderKey = "OpenAI";
     private const string PromptProviderKey = "Langfuse";
     private const string SystemPromptName = "system";
-    private const int MaxToolIterations = 10;
+    private const int MaxIterations = 10;
 
     #endregion
 
@@ -50,33 +50,16 @@ public class DemoAgent : IChatAgent
         // Add user message to history
         _history.Add(new ChatMessage(ChatRole.User, userInput));
 
-        // Tool execution loop with max iterations
-        for (int i = 0; i < MaxToolIterations; i++)
+        // LLM iteration loop with max iterations
+        for (int i = 0; i < MaxIterations; i++)
         {
             var result = await _provider.CompleteAsync(_history, Tools.GetDescriptors());
 
-            // Check if model wants to call a tool
-            if (result.ToolCall is { } toolCall)
+            // Check if model wants to call tools
+            if (result.HasToolCalls)
             {
-                // First, add the assistant's message with the tool call request
-                // This is REQUIRED by OpenAI - tool results must follow an assistant message with tool_calls
-                _history.Add(new ChatMessage(
-                    Role: ChatRole.Assistant,
-                    Content: string.Empty,
-                    ToolCallRequest: toolCall
-                ));
-
-                // Execute the tool
-                var toolResult = Tools.Execute(toolCall);
-
-                // Add tool result to history
-                _history.Add(new ChatMessage(
-                    Role: ChatRole.Tool,
-                    Content: toolResult,
-                    ToolCallId: toolCall.Id,
-                    ToolName: toolCall.Name
-                ));
-
+                ExecuteToolCalls(result.ToolCalls!);
+                
                 // Continue loop for follow-up response
                 continue;
             }
@@ -87,6 +70,33 @@ public class DemoAgent : IChatAgent
             return content;
         }
 
-        throw new InvalidOperationException($"Max tool iterations ({MaxToolIterations}) exceeded");
+        throw new InvalidOperationException($"Max iterations ({MaxIterations}) exceeded");
+    }
+
+    /// <summary>
+    /// Executes tool calls and adds appropriate messages to history.
+    /// </summary>
+    private void ExecuteToolCalls(IReadOnlyList<ToolCall> toolCalls)
+    {
+        // First, add the assistant's message with all tool call requests
+        // This is REQUIRED by OpenAI - tool results must follow an assistant message with tool_calls
+        _history.Add(new ChatMessage(
+            Role: ChatRole.Assistant,
+            Content: string.Empty,
+            ToolCallRequests: toolCalls
+        ));
+
+        // Execute each tool and add results to history
+        foreach (var toolCall in toolCalls)
+        {
+            var toolResult = Tools.Execute(toolCall);
+
+            _history.Add(new ChatMessage(
+                Role: ChatRole.Tool,
+                Content: toolResult,
+                ToolCallId: toolCall.Id,
+                ToolName: toolCall.Name
+            ));
+        }
     }
 }

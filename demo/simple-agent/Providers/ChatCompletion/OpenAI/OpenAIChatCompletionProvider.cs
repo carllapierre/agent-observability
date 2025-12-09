@@ -35,23 +35,26 @@ public sealed class OpenAIChatCompletionProvider : IChatCompletionProvider
         var completion = await _client.CompleteChatAsync(openAIMessages, options);
         var choice = completion.Value;
 
-        // Check for tool calls
+        // Check for tool calls - handle multiple
         if (choice.ToolCalls.Count > 0)
         {
-            var tc = choice.ToolCalls[0];
-            return new ChatCompletionResult(
-                Content: null,
-                ToolCall: new ToolCall(
+            var toolCalls = choice.ToolCalls
+                .Select(tc => new ToolCall(
                     Id: tc.Id,
                     Name: tc.FunctionName,
                     Arguments: tc.FunctionArguments.ToString()
-                )
+                ))
+                .ToList();
+
+            return new ChatCompletionResult(
+                Content: null,
+                ToolCalls: toolCalls
             );
         }
 
         return new ChatCompletionResult(
             Content: choice.Content[0].Text,
-            ToolCall: null
+            ToolCalls: null
         );
     }
 
@@ -77,19 +80,18 @@ public sealed class OpenAIChatCompletionProvider : IChatCompletionProvider
 
     private static AssistantChatMessage CreateAssistantMessage(ChatMessage msg)
     {
-        // If the assistant requested a tool call, include it in the message
-        if (msg.ToolCallRequest is { } toolCall)
+        // If the assistant requested tool calls, include them in the message
+        if (msg.ToolCallRequests is { Count: > 0 } toolCalls)
         {
-            return new AssistantChatMessage(
-                new List<ChatToolCall>
-                {
-                    ChatToolCall.CreateFunctionToolCall(
-                        toolCall.Id,
-                        toolCall.Name,
-                        BinaryData.FromString(toolCall.Arguments)
-                    )
-                }
-            );
+            var chatToolCalls = toolCalls
+                .Select(tc => ChatToolCall.CreateFunctionToolCall(
+                    tc.Id,
+                    tc.Name,
+                    BinaryData.FromString(tc.Arguments)
+                ))
+                .ToList();
+
+            return new AssistantChatMessage(chatToolCalls);
         }
 
         return new AssistantChatMessage(msg.Content);

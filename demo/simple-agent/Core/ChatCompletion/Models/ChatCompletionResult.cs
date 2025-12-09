@@ -5,8 +5,14 @@ namespace SimpleAgent.Core.ChatCompletion.Models;
 /// </summary>
 public record ChatCompletionResult(
     string? Content,
-    ToolCall? ToolCall = null
-);
+    IReadOnlyList<ToolCall>? ToolCalls = null
+)
+{
+    /// <summary>
+    /// Gets whether this result contains tool calls.
+    /// </summary>
+    public bool HasToolCalls => ToolCalls is { Count: > 0 };
+}
 
 /// <summary>
 /// A tool call requested by the model.
@@ -16,4 +22,3 @@ public record ToolCall(
     string Name,
     string Arguments
 );
-

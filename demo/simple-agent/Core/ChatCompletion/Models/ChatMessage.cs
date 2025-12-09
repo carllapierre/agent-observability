@@ -19,6 +19,5 @@ public record ChatMessage(
     string Content,
     string? ToolCallId = null,
     string? ToolName = null,
-    ToolCall? ToolCallRequest = null  // For assistant messages that request tool calls
+    IReadOnlyList<ToolCall>? ToolCallRequests = null  // For assistant messages that request tool calls
 );
-
