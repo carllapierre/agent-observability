@@ -1,7 +1,9 @@
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 using OpenAI.Chat;
 using SimpleAgent.Core.ChatCompletion.Interfaces;
 using SimpleAgent.Core.ChatCompletion.Models;
+using SimpleAgent.Core.DependencyInjection.Attributes;
 using SimpleAgent.Core.Tools.Models;
 using ChatMessage = SimpleAgent.Core.ChatCompletion.Models.ChatMessage;
 using ToolCall = SimpleAgent.Core.ChatCompletion.Models.ToolCall;
@@ -12,13 +14,15 @@ namespace SimpleAgent.Providers.ChatCompletion.OpenAI;
 /// OpenAI chat completion provider implementation.
 /// Translates common message format to OpenAI SDK format.
 /// </summary>
+[RegisterKeyed<IChatCompletionProvider>("OpenAI")]
 public sealed class OpenAIChatCompletionProvider : IChatCompletionProvider
 {
     private readonly ChatClient _client;
 
-    public OpenAIChatCompletionProvider(string apiKey, string model)
+    public OpenAIChatCompletionProvider(IOptions<OpenAISettings> options)
     {
-        _client = new ChatClient(model, apiKey);
+        var settings = options.Value;
+        _client = new ChatClient(settings.Model, settings.ApiKey);
     }
 
     public async Task<ChatCompletionResult> CompleteAsync(
@@ -157,4 +161,3 @@ public sealed class OpenAIChatCompletionProvider : IChatCompletionProvider
         return BinaryData.FromString(JsonSerializer.Serialize(schema));
     }
 }
-

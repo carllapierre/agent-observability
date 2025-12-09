@@ -1,4 +1,6 @@
 using Langfuse.Client;
+using Microsoft.Extensions.Options;
+using SimpleAgent.Core.DependencyInjection.Attributes;
 using SimpleAgent.Core.Prompts.Interfaces;
 
 namespace SimpleAgent.Providers.Prompt;
@@ -6,21 +8,24 @@ namespace SimpleAgent.Providers.Prompt;
 /// <summary>
 /// Provides prompts from Langfuse prompt management.
 /// </summary>
+[RegisterKeyed<IPromptProvider>("Langfuse")]
 public class LangfusePromptProvider : IPromptProvider
 {
     private readonly LangfuseClient _client;
 
-    public LangfusePromptProvider(LangfuseSettings settings)
+    public LangfusePromptProvider(IOptions<LangfuseSettings> options)
     {
+        var settings = options.Value;
+        
         // Configure Langfuse via client options
-        var options = new LangfuseClientOptions
+        var clientOptions = new LangfuseClientOptions
         {
             PublicKey = settings.PublicKey,
             SecretKey = settings.SecretKey,
             BaseUrl = settings.BaseUrl
         };
 
-        _client = new LangfuseClient(options);
+        _client = new LangfuseClient(clientOptions);
     }
 
     public string? GetPrompt(string key, string? label = null, int? version = null)
@@ -44,4 +49,3 @@ public class LangfusePromptProvider : IPromptProvider
         }
     }
 }
-

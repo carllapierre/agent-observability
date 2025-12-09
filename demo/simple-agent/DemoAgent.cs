@@ -1,9 +1,10 @@
 using AgentCLI;
+using Microsoft.Extensions.DependencyInjection;
 using SimpleAgent.Core.ChatCompletion.Interfaces;
 using SimpleAgent.Core.ChatCompletion.Models;
+using SimpleAgent.Core.DependencyInjection.Attributes;
 using SimpleAgent.Core.Prompts.Interfaces;
 using SimpleAgent.Core.Tools.Services;
-using SimpleAgent.Providers.Prompt;
 using SimpleAgent.Tools;
 
 namespace SimpleAgent;
@@ -12,24 +13,32 @@ namespace SimpleAgent;
 /// Demo chat agent implementation.
 /// Owns chat history, tool registry, and manages the tool execution loop.
 /// </summary>
+[RegisterKeyed<IChatAgent>("Demo")]
 public class DemoAgent : IChatAgent
 {
+    #region Configuration - Change these to switch providers
+
+    private const string ChatCompletionProviderKey = "OpenAI";
+    private const string PromptProviderKey = "Langfuse";
+    private const string SystemPromptName = "system";
     private const int MaxToolIterations = 10;
+
+    #endregion
 
     private readonly IChatCompletionProvider _provider;
     private readonly IPromptProvider _promptProvider;
-    private readonly List<ChatMessage> _history = new();
+    private readonly List<ChatMessage> _history = [];
 
     // Register available tools
     private static readonly ToolRegistry Tools = new(typeof(RollDiceTool));
 
-    public DemoAgent(IChatCompletionProvider provider, IPromptProvider? promptProvider = null)
+    public DemoAgent(IServiceProvider services)
     {
-        _provider = provider;
-        _promptProvider = promptProvider ?? new LocalPromptProvider();
+        _provider = services.GetRequiredKeyedService<IChatCompletionProvider>(ChatCompletionProviderKey);
+        _promptProvider = services.GetRequiredKeyedService<IPromptProvider>(PromptProviderKey);
 
         // Initialize with system prompt if available
-        var systemPrompt = _promptProvider.GetPrompt("system");
+        var systemPrompt = _promptProvider.GetPrompt(SystemPromptName);
         if (!string.IsNullOrEmpty(systemPrompt))
         {
             _history.Add(new ChatMessage(ChatRole.System, systemPrompt));

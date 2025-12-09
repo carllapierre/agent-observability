@@ -1,8 +1,11 @@
+using SimpleAgent.Core.DependencyInjection.Attributes;
+
 namespace SimpleAgent.Providers.Prompt;
 
 /// <summary>
 /// Langfuse connection settings.
 /// </summary>
+[ConfigSection("Langfuse")]
 public class LangfuseSettings
 {
     /// <summary>

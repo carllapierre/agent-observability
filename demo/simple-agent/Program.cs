@@ -1,21 +1,22 @@
 using AgentCLI;
-using SimpleAgent;
-using SimpleAgent.Configuration;
-using SimpleAgent.Core.ChatCompletion.Services;
-using SimpleAgent.Core.Prompts.Services;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using SimpleAgent.Core.DependencyInjection.Extensions;
 
-// Load configuration
-var config = AppConfiguration.Load();
+// Setup services
+var services = new ServiceCollection();
+services.AddConfiguration<SimpleAgent.DemoAgent>();
+services.AddKeyedServicesFromAssembly<SimpleAgent.DemoAgent>();
 
-// Create chat completion provider based on configuration
-var chatProvider = ChatCompletionProviderFactory.Create(config);
+// Build provider
+var provider = services.BuildServiceProvider();
 
-// Create prompt provider based on configuration
-var promptProvider = PromptProviderFactory.Create(config);
+// Get agent and CLI settings from configuration
+var agent = provider.GetRequiredKeyedService<IChatAgent>("Demo");
+var config = provider.GetRequiredService<IConfiguration>();
 
-// Create agent
-IChatAgent agent = new DemoAgent(chatProvider, promptProvider);
+var cliSettings = new CLISettings();
+config.GetSection("CLI").Bind(cliSettings);
 
-// Setup and run CLI
-ChatCLI cli = new(agent, config.CLI);
+var cli = new ChatCLI(agent, cliSettings);
 await cli.RunAsync();

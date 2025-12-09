@@ -1,3 +1,4 @@
+using SimpleAgent.Core.DependencyInjection.Attributes;
 using SimpleAgent.Core.Prompts.Interfaces;
 
 namespace SimpleAgent.Providers.Prompt;
@@ -6,6 +7,7 @@ namespace SimpleAgent.Providers.Prompt;
 /// Provides prompts from local text files in the Prompts directory.
 /// Files are named {key}.txt (label and version are ignored).
 /// </summary>
+[RegisterKeyed<IPromptProvider>("Local")]
 public class LocalPromptProvider : IPromptProvider
 {
     private readonly string _promptsDirectory;
@@ -27,4 +29,3 @@ public class LocalPromptProvider : IPromptProvider
         return File.ReadAllText(promptPath).Trim();
     }
 }
-
