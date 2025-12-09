@@ -29,7 +29,7 @@ public class DemoAgent : IChatAgent
         _promptProvider = promptProvider ?? new LocalPromptProvider();
 
         // Initialize with system prompt if available
-        var systemPrompt = _promptProvider.GetSystemPrompt();
+        var systemPrompt = _promptProvider.GetPrompt("system");
         if (!string.IsNullOrEmpty(systemPrompt))
         {
             _history.Add(new ChatMessage(ChatRole.System, systemPrompt));

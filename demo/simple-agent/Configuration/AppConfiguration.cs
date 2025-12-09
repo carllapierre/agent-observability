@@ -1,7 +1,9 @@
 ﻿using AgentCLI;
 using Microsoft.Extensions.Configuration;
 using SimpleAgent.Core.ChatCompletion.Models;
+using SimpleAgent.Core.Prompts.Models;
 using SimpleAgent.Providers.ChatCompletion.OpenAI;
+using SimpleAgent.Providers.Prompt;
 
 namespace SimpleAgent.Configuration;
 
@@ -11,7 +13,9 @@ namespace SimpleAgent.Configuration;
 public class AppConfiguration
 {
     public ChatCompletionProviderType Provider { get; private set; } = ChatCompletionProviderType.OpenAI;
+    public PromptProviderType PromptProvider { get; private set; } = PromptProviderType.Local;
     public OpenAISettings OpenAI { get; private set; } = new();
+    public LangfuseSettings Langfuse { get; private set; } = new();
     public CLISettings CLI { get; private set; } = new();
 
     /// <summary>
@@ -27,14 +31,22 @@ public class AppConfiguration
 
         var appConfig = new AppConfiguration();
 
-        // Parse provider type
+        // Parse chat completion provider type
         var providerString = configuration["Provider"] ?? "OpenAI";
         if (Enum.TryParse<ChatCompletionProviderType>(providerString, ignoreCase: true, out var provider))
         {
             appConfig.Provider = provider;
         }
 
+        // Parse prompt provider type
+        var promptProviderString = configuration["PromptProvider"] ?? "Local";
+        if (Enum.TryParse<PromptProviderType>(promptProviderString, ignoreCase: true, out var promptProvider))
+        {
+            appConfig.PromptProvider = promptProvider;
+        }
+
         configuration.GetSection("OpenAI").Bind(appConfig.OpenAI);
+        configuration.GetSection("Langfuse").Bind(appConfig.Langfuse);
         configuration.GetSection("CLI").Bind(appConfig.CLI);
 
         // Validate API key

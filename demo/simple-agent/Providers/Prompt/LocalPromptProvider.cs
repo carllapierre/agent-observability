@@ -4,11 +4,11 @@ namespace SimpleAgent.Providers.Prompt;
 
 /// <summary>
 /// Provides prompts from local text files in the Prompts directory.
+/// Files are named {key}.txt (label and version are ignored).
 /// </summary>
 public class LocalPromptProvider : IPromptProvider
 {
     private readonly string _promptsDirectory;
-    private const string SystemPromptFileName = "system.txt";
 
     public LocalPromptProvider(string? promptsDirectory = null)
     {
@@ -16,14 +16,15 @@ public class LocalPromptProvider : IPromptProvider
             ?? Path.Combine(Directory.GetCurrentDirectory(), "Prompts");
     }
 
-    public string? GetSystemPrompt()
+    public string? GetPrompt(string key, string? label = null, int? version = null)
     {
-        var systemPromptPath = Path.Combine(_promptsDirectory, SystemPromptFileName);
+        // Local provider uses key as filename (ignores label/version)
+        var promptPath = Path.Combine(_promptsDirectory, $"{key}.txt");
         
-        if (!File.Exists(systemPromptPath))
+        if (!File.Exists(promptPath))
             return null;
 
-        return File.ReadAllText(systemPromptPath).Trim();
+        return File.ReadAllText(promptPath).Trim();
     }
 }
 
