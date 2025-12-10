@@ -4,6 +4,8 @@ using OpenAI.Chat;
 using SimpleAgent.Core.ChatCompletion.Interfaces;
 using SimpleAgent.Core.ChatCompletion.Models;
 using SimpleAgent.Core.DependencyInjection.Attributes;
+using SimpleAgent.Core.Telemetry.Interfaces;
+using SimpleAgent.Core.Telemetry.Models;
 using SimpleAgent.Core.Tools.Models;
 using ChatMessage = SimpleAgent.Core.ChatCompletion.Models.ChatMessage;
 using ToolCall = SimpleAgent.Core.ChatCompletion.Models.ToolCall;
@@ -18,22 +20,45 @@ namespace SimpleAgent.Providers.ChatCompletion.OpenAI;
 public sealed class OpenAIChatCompletionProvider : IChatCompletionProvider
 {
     private readonly ChatClient _client;
+    private readonly IAgentTelemetry _telemetry;
+    private readonly string _model;
 
-    public OpenAIChatCompletionProvider(IOptions<OpenAISettings> options)
+    public OpenAIChatCompletionProvider(IOptions<OpenAISettings> options, IAgentTelemetry telemetry)
     {
         var settings = options.Value;
-        _client = new ChatClient(settings.Model, settings.ApiKey);
+        _model = settings.Model;
+        _client = new ChatClient(_model, settings.ApiKey);
+        _telemetry = telemetry;
     }
 
     public async Task<ChatCompletionResult> CompleteAsync(
         IReadOnlyList<ChatMessage> messages,
         IReadOnlyList<ToolDescriptor>? tools = null)
     {
+        // Start generation span
+        using var generation = _telemetry.StartGeneration(new GenerationContext
+        {
+            Provider = "openai",
+            Model = _model,
+            Input = messages
+        });
+
+        try
+    {
         var openAIMessages = TranslateMessages(messages);
         var options = CreateOptions(tools);
 
         var completion = await _client.CompleteChatAsync(openAIMessages, options);
         var choice = completion.Value;
+
+            // Record token usage if available
+            if (completion.Value.Usage is { } usage)
+            {
+                generation.SetTokenUsage(usage.InputTokenCount, usage.OutputTokenCount);
+            }
+
+            // Record response model
+            generation.SetResponseModel(choice.Model);
 
         // Check for tool calls - handle multiple
         if (choice.ToolCalls.Count > 0)
@@ -46,16 +71,27 @@ public sealed class OpenAIChatCompletionProvider : IChatCompletionProvider
                 ))
                 .ToList();
 
+                generation.SetCompletion(new { toolCalls = toolCalls.Select(t => new { t.Name, t.Arguments }) });
+
             return new ChatCompletionResult(
                 Content: null,
                 ToolCalls: toolCalls
             );
         }
 
+            var content = choice.Content[0].Text;
+            generation.SetCompletion(content);
+
         return new ChatCompletionResult(
-            Content: choice.Content[0].Text,
+                Content: content,
             ToolCalls: null
         );
+        }
+        catch (Exception ex)
+        {
+            generation.RecordException(ex);
+            throw;
+        }
     }
 
     private static List<global::OpenAI.Chat.ChatMessage> TranslateMessages(

@@ -2,6 +2,7 @@ using Langfuse.Client;
 using Microsoft.Extensions.Options;
 using SimpleAgent.Core.DependencyInjection.Attributes;
 using SimpleAgent.Core.Prompts.Interfaces;
+using SimpleAgent.Settings;
 
 namespace SimpleAgent.Providers.Prompt;
 

@@ -1,6 +1,6 @@
 using SimpleAgent.Core.DependencyInjection.Attributes;
 
-namespace SimpleAgent.Providers.Prompt;
+namespace SimpleAgent.Settings;
 
 /// <summary>
 /// Langfuse connection settings.
@@ -23,4 +23,3 @@ public class LangfuseSettings
     /// </summary>
     public string BaseUrl { get; set; } = "https://cloud.langfuse.com";
 }
-

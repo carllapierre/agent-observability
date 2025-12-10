@@ -1,22 +1,35 @@
 using AgentCLI;
+using Langfuse.OpenTelemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTelemetry;
+using OpenTelemetry.Trace;
 using SimpleAgent.Core.DependencyInjection.Extensions;
+using SimpleAgent.Core.Telemetry.Constants;
+using SimpleAgent.Core.Telemetry.Interfaces;
+using SimpleAgent.Core.Telemetry.Services;
+using SimpleAgent.Settings;
 
-// Setup services
 var services = new ServiceCollection();
-services.AddConfiguration<SimpleAgent.DemoAgent>();
-services.AddKeyedServicesFromAssembly<SimpleAgent.DemoAgent>();
+var configuration = services.AddServicesFromAssembly<SimpleAgent.DemoAgent>();
 
-// Build provider
+// Setup telemetry
+var langfuseSettings = configuration.GetSection("Langfuse").Get<LangfuseSettings>()!;
+using var tracerProvider = Sdk.CreateTracerProviderBuilder()
+    .AddSource(GenAIAttributes.SourceName)
+    .AddLangfuseExporter(options =>
+    {
+        options.PublicKey = langfuseSettings.PublicKey;
+        options.SecretKey = langfuseSettings.SecretKey;
+        options.BaseUrl = langfuseSettings.BaseUrl;
+    })
+    .Build();
+services.AddSingleton<IAgentTelemetry, LangfuseTelemetry>();
+
+// Run
 var provider = services.BuildServiceProvider();
-
-// Get agent and CLI settings from configuration
 var agent = provider.GetRequiredKeyedService<IChatAgent>("Demo");
-var config = provider.GetRequiredService<IConfiguration>();
-
-var cliSettings = new CLISettings();
-config.GetSection("CLI").Bind(cliSettings);
+var cliSettings = configuration.GetSection("CLI").Get<CLISettings>() ?? new CLISettings();
 
 var cli = new ChatCLI(agent, cliSettings);
 await cli.RunAsync();
