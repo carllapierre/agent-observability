@@ -1,11 +1,11 @@
 using System.Text.Json;
+using AgentTelemetry.Interfaces;
+using AgentTelemetry.Models;
 using Microsoft.Extensions.Options;
 using OpenAI.Chat;
 using SimpleAgent.Core.ChatCompletion.Interfaces;
 using SimpleAgent.Core.ChatCompletion.Models;
 using SimpleAgent.Core.DependencyInjection.Attributes;
-using SimpleAgent.Core.Telemetry.Interfaces;
-using SimpleAgent.Core.Telemetry.Models;
 using SimpleAgent.Core.Tools.Models;
 using ChatMessage = SimpleAgent.Core.ChatCompletion.Models.ChatMessage;
 using ToolCall = SimpleAgent.Core.ChatCompletion.Models.ToolCall;

@@ -1,10 +1,10 @@
 using System.Diagnostics;
 using System.Text.Json;
-using SimpleAgent.Core.Telemetry.Constants;
-using SimpleAgent.Core.Telemetry.Interfaces;
-using SimpleAgent.Core.Telemetry.Models;
+using AgentTelemetry.Constants;
+using AgentTelemetry.Interfaces;
+using AgentTelemetry.Models;
 
-namespace SimpleAgent.Core.Telemetry.Services;
+namespace AgentTelemetry.Services;
 
 /// <summary>
 /// Base implementation of agent telemetry using standard OpenTelemetry semantics.
@@ -23,33 +23,49 @@ public class AgentTelemetry : IAgentTelemetry
     public virtual TelemetryScope StartTrace(string name, string? sessionId = null, string? userId = null, string[]? tags = null, object? input = null)
     {
         var activity = ActivitySource.StartActivity(name, ActivityKind.Server);
-        SetInput(activity, input);
+        
+        if (activity is not null)
+        {
+            activity.SetTag(GenAIAttributes.Trace.Name, name);
+            
+            if (sessionId is not null)
+                activity.SetTag(GenAIAttributes.Session.Id, sessionId);
+
+            if (userId is not null)
+                activity.SetTag(GenAIAttributes.User.Id, userId);
+
+            if (tags is { Length: > 0 })
+                activity.SetTag(GenAIAttributes.Trace.Tags, string.Join(",", tags));
+
+            SetInput(activity, input);
+        }
+        
         return new TelemetryScope(activity);
     }
 
     public virtual TelemetryScope StartSpan(string name, object? input = null) =>
-        StartObservation(name, input);
+        StartObservation(name, OperationNames.Span, input);
 
     public virtual TelemetryScope StartEvent(string name, object? input = null) =>
-        StartObservation(name, input);
+        StartObservation(name, OperationNames.Event, input);
 
     public virtual TelemetryScope StartAgent(string name, object? input = null) =>
-        StartObservation(name, input);
+        StartObservation(name, OperationNames.InvokeAgent, input);
 
     public virtual TelemetryScope StartChain(string name, object? input = null) =>
-        StartObservation(name, input);
+        StartObservation(name, OperationNames.Chain, input);
 
     public virtual TelemetryScope StartRetriever(string name, object? input = null) =>
-        StartObservation(name, input);
+        StartObservation(name, OperationNames.Retriever, input);
 
     public virtual TelemetryScope StartEvaluator(string name, object? input = null) =>
-        StartObservation(name, input);
+        StartObservation(name, OperationNames.Evaluator, input);
 
     public virtual TelemetryScope StartEmbedding(string name, object? input = null) =>
-        StartObservation(name, input);
+        StartObservation(name, OperationNames.Embeddings, input);
 
     public virtual TelemetryScope StartGuardrail(string name, object? input = null) =>
-        StartObservation(name, input);
+        StartObservation(name, OperationNames.Guardrail, input);
 
     public virtual TelemetryScope StartTool(string toolName, object? inputs = null)
     {
@@ -57,7 +73,8 @@ public class AgentTelemetry : IAgentTelemetry
         
         if (activity is not null)
         {
-            activity.SetTag("tool.name", toolName);
+            activity.SetTag(GenAIAttributes.GenAi.OperationName, OperationNames.ExecuteTool);
+            activity.SetTag(GenAIAttributes.Tool.Name, toolName);
             SetInput(activity, inputs);
         }
 
@@ -70,6 +87,7 @@ public class AgentTelemetry : IAgentTelemetry
 
         if (activity is not null)
         {
+            activity.SetTag(GenAIAttributes.GenAi.OperationName, OperationNames.Chat);
             activity.SetTag(GenAIAttributes.GenAi.System, context.Provider);
             activity.SetTag(GenAIAttributes.GenAi.RequestModel, context.Model);
             
@@ -77,7 +95,7 @@ public class AgentTelemetry : IAgentTelemetry
             {
                 var inputJson = SerializeInput(context.Input);
                 activity.SetTag(GenAIAttributes.GenAi.Prompt, inputJson);
-                activity.SetTag("input", inputJson);
+                activity.SetTag(GenAIAttributes.Span.Input, inputJson);
             }
 
             if (context.Temperature.HasValue)
@@ -107,17 +125,25 @@ public class AgentTelemetry : IAgentTelemetry
         }));
     }
 
-    protected TelemetryScope StartObservation(string name, object? input = null)
+    protected TelemetryScope StartObservation(string name, string? operationName = null, object? input = null)
     {
         var activity = ActivitySource.StartActivity(name, ActivityKind.Internal);
-        SetInput(activity, input);
+        
+        if (activity is not null)
+        {
+            if (operationName is not null)
+                activity.SetTag(GenAIAttributes.GenAi.OperationName, operationName);
+            
+            SetInput(activity, input);
+        }
+        
         return new TelemetryScope(activity);
     }
 
     protected void SetInput(Activity? activity, object? input)
     {
         if (activity is not null && input is not null)
-            activity.SetTag("input", SerializeInput(input));
+            activity.SetTag(GenAIAttributes.Span.Input, SerializeInput(input));
     }
 
     protected string SerializeInput(object input) =>

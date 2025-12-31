@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Text.Json;
-using SimpleAgent.Core.Telemetry.Constants;
+using AgentTelemetry.Constants;
 
-namespace SimpleAgent.Core.Telemetry.Models;
+namespace AgentTelemetry.Models;
 
 /// <summary>
 /// Specialized scope for generation spans that includes
@@ -55,3 +55,4 @@ public sealed class GenerationScope : TelemetryScope
         SetOutput(completion);
     }
 }
+

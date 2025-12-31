@@ -1,11 +1,11 @@
 using AgentCLI;
+using AgentTelemetry.Interfaces;
+using AgentTelemetry.Models;
 using Microsoft.Extensions.DependencyInjection;
 using SimpleAgent.Core.ChatCompletion.Interfaces;
 using SimpleAgent.Core.ChatCompletion.Models;
 using SimpleAgent.Core.DependencyInjection.Attributes;
 using SimpleAgent.Core.Prompts.Interfaces;
-using SimpleAgent.Core.Telemetry.Interfaces;
-using SimpleAgent.Core.Telemetry.Models;
 using SimpleAgent.Core.Tools.Services;
 using SimpleAgent.Tools;
 

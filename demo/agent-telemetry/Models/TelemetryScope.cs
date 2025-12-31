@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 
-namespace SimpleAgent.Core.Telemetry.Models;
+namespace AgentTelemetry.Models;
 
 /// <summary>
 /// Disposable wrapper around an Activity that handles automatic closure
@@ -58,3 +58,4 @@ public class TelemetryScope : IDisposable
         GC.SuppressFinalize(this);
     }
 }
+

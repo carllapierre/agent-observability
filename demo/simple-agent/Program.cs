@@ -1,14 +1,14 @@
 using AgentCLI;
+using AgentTelemetry.Constants;
+using AgentTelemetry.Interfaces;
 using Langfuse.OpenTelemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 using SimpleAgent.Core.DependencyInjection.Extensions;
-using SimpleAgent.Core.Telemetry.Constants;
-using SimpleAgent.Core.Telemetry.Interfaces;
-using SimpleAgent.Core.Telemetry.Services;
 using SimpleAgent.Settings;
+using SimpleAgent.Telemetry;
 
 var services = new ServiceCollection();
 var configuration = services.AddServicesFromAssembly<SimpleAgent.DemoAgent>();
@@ -17,6 +17,7 @@ var configuration = services.AddServicesFromAssembly<SimpleAgent.DemoAgent>();
 var langfuseSettings = configuration.GetSection("Langfuse").Get<LangfuseSettings>()!;
 using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     .AddSource(GenAIAttributes.SourceName)
+    .AddProcessor<LangfuseSpanProcessor>()
     .AddLangfuseExporter(options =>
     {
         options.PublicKey = langfuseSettings.PublicKey;
@@ -24,7 +25,7 @@ using var tracerProvider = Sdk.CreateTracerProviderBuilder()
         options.BaseUrl = langfuseSettings.BaseUrl;
     })
     .Build();
-services.AddSingleton<IAgentTelemetry, LangfuseTelemetry>();
+services.AddSingleton<IAgentTelemetry, AgentTelemetry.Services.AgentTelemetry>();
 
 // Run
 var provider = services.BuildServiceProvider();

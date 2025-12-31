@@ -1,4 +1,4 @@
-namespace SimpleAgent.Core.Telemetry.Models;
+namespace AgentTelemetry.Models;
 
 /// <summary>
 /// Context for an LLM generation call.
@@ -36,3 +36,4 @@ public record GenerationContext
     /// </summary>
     public float? TopP { get; init; }
 }
+

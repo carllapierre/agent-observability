@@ -1,6 +1,6 @@
-using SimpleAgent.Core.Telemetry.Models;
+using AgentTelemetry.Models;
 
-namespace SimpleAgent.Core.Telemetry.Interfaces;
+namespace AgentTelemetry.Interfaces;
 
 /// <summary>
 /// Abstraction layer for agent telemetry.
@@ -68,3 +68,4 @@ public interface IAgentTelemetry
     /// </summary>
     void RecordException(Exception exception);
 }
+

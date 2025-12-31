@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\cli\AgentCLI.csproj" />
+    <ProjectReference Include="..\agent-telemetry\AgentTelemetry.csproj" />
   </ItemGroup>
 
 </Project>
