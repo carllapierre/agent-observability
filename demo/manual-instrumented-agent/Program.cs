@@ -1,20 +1,26 @@
 using AgentCLI;
 using AgentTelemetry.Constants;
-using AgentTelemetry.Interfaces;
+using AgentTelemetry.Langfuse;
 using Langfuse.OpenTelemetry;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
-using SimpleAgent.Core.DependencyInjection.Extensions;
-using SimpleAgent.Settings;
-using SimpleAgent.Telemetry;
+using AgentCore.Providers.ChatCompletion.OpenAI;
+using AgentCore.Settings;
 
-var services = new ServiceCollection();
-var configuration = services.AddServicesFromAssembly<SimpleAgent.DemoAgent>();
+// Load configuration
+var configuration = new ConfigurationBuilder()
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json")
+    .AddJsonFile("appsettings.local.json", optional: true)
+    .Build();
 
-// Setup telemetry
+// Get settings
+var openAISettings = configuration.GetSection("OpenAI").Get<OpenAISettings>()!;
 var langfuseSettings = configuration.GetSection("Langfuse").Get<LangfuseSettings>()!;
+var cliSettings = configuration.GetSection("CLI").Get<CLISettings>() ?? new CLISettings();
+
+// Setup telemetry exporter
 using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     .AddSource(GenAIAttributes.SourceName)
     .AddProcessor<LangfuseSpanProcessor>()
@@ -25,12 +31,8 @@ using var tracerProvider = Sdk.CreateTracerProviderBuilder()
         options.BaseUrl = langfuseSettings.BaseUrl;
     })
     .Build();
-services.AddSingleton<IAgentTelemetry, AgentTelemetry.Services.AgentTelemetry>();
 
-// Run
-var provider = services.BuildServiceProvider();
-var agent = provider.GetRequiredKeyedService<IChatAgent>("Demo");
-var cliSettings = configuration.GetSection("CLI").Get<CLISettings>() ?? new CLISettings();
-
+// Create and run
+var agent = new SimpleAgent.DemoAgent(openAISettings, langfuseSettings);
 var cli = new ChatCLI(agent, cliSettings);
 await cli.RunAsync();

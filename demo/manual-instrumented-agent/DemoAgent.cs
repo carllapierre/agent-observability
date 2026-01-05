@@ -1,12 +1,12 @@
 using AgentCLI;
 using AgentTelemetry.Interfaces;
-using AgentTelemetry.Models;
-using Microsoft.Extensions.DependencyInjection;
-using SimpleAgent.Core.ChatCompletion.Interfaces;
-using SimpleAgent.Core.ChatCompletion.Models;
-using SimpleAgent.Core.DependencyInjection.Attributes;
-using SimpleAgent.Core.Prompts.Interfaces;
-using SimpleAgent.Core.Tools.Services;
+using AgentCore.ChatCompletion.Interfaces;
+using AgentCore.ChatCompletion.Models;
+using AgentCore.Prompts.Interfaces;
+using AgentCore.Providers.ChatCompletion.OpenAI;
+using AgentCore.Providers.Prompt;
+using AgentCore.Settings;
+using AgentCore.Tools.Services;
 using SimpleAgent.Tools;
 
 namespace SimpleAgent;
@@ -15,18 +15,11 @@ namespace SimpleAgent;
 /// Demo chat agent implementation.
 /// Owns chat history, tool registry, and manages the tool execution loop.
 /// </summary>
-[RegisterKeyed<IChatAgent>("Demo")]
 public class DemoAgent : IChatAgent
 {
-    #region Configuration - Change these to switch providers
-
-    private const string ChatCompletionProviderKey = "OpenAI";
-    private const string PromptProviderKey = "Langfuse";
     private const string SystemPromptName = "system";
     private const int MaxIterations = 10;
-    private const string AgentName = "DemoAgent";
-
-    #endregion
+    private const string AgentName = "Manual Agent";
 
     private readonly IChatCompletionProvider _provider;
     private readonly IPromptProvider _promptProvider;
@@ -35,13 +28,13 @@ public class DemoAgent : IChatAgent
     private readonly string _sessionId = Guid.NewGuid().ToString();
 
     // Register available tools
-    private static readonly ToolRegistry Tools = new(typeof(RollDiceTool));
+    private static readonly ToolRegistry Tools = new(typeof(RollDiceTool), typeof(DealCardsTool));
 
-    public DemoAgent(IServiceProvider services)
+    public DemoAgent(OpenAISettings openAISettings, LangfuseSettings langfuseSettings)
     {
-        _provider = services.GetRequiredKeyedService<IChatCompletionProvider>(ChatCompletionProviderKey);
-        _promptProvider = services.GetRequiredKeyedService<IPromptProvider>(PromptProviderKey);
-        _telemetry = services.GetRequiredService<IAgentTelemetry>();
+        _telemetry = new AgentTelemetry.Services.AgentTelemetry();
+        _provider = new OpenAIChatCompletionProvider(openAISettings, _telemetry);
+        _promptProvider = new LangfusePromptProvider(langfuseSettings);
 
         // Initialize with system prompt if available
         var systemPrompt = _promptProvider.GetPrompt(SystemPromptName);
