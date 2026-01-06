@@ -46,16 +46,16 @@ public class DemoAgent : IChatAgent
 
     public async Task<string> GetResponseAsync(string userInput)
     {
-        // Start root trace (type=span, not in graph - just a container)
-        using var trace = _telemetry.StartTrace(AgentName, sessionId: _sessionId, input: userInput);
+        // Add user message to history first
+        _history.Add(new ChatMessage(ChatRole.User, userInput));
+
+        // Start root trace with full conversation history as input
+        using var trace = _telemetry.StartTrace(AgentName, sessionId: _sessionId, input: _history);
 
         try
         {
             // Start agent span (type=agent, appears in graph)
-            using var agent = _telemetry.StartAgent(AgentName, userInput);
-            
-            // Add user message to history
-            _history.Add(new ChatMessage(ChatRole.User, userInput));
+            using var agent = _telemetry.StartAgent(AgentName, _history);
 
             // LLM iteration loop with max iterations
             for (int i = 0; i < MaxIterations; i++)

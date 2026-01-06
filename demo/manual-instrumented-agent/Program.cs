@@ -1,10 +1,10 @@
 using AgentCLI;
 using AgentTelemetry.Constants;
 using AgentTelemetry.Langfuse;
-using Langfuse.OpenTelemetry;
 using Microsoft.Extensions.Configuration;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Exporter;
 using AgentCore.Providers.ChatCompletion.OpenAI;
 using AgentCore.Settings;
 
@@ -20,15 +20,14 @@ var openAISettings = configuration.GetSection("OpenAI").Get<OpenAISettings>()!;
 var langfuseSettings = configuration.GetSection("Langfuse").Get<LangfuseSettings>()!;
 var cliSettings = configuration.GetSection("CLI").Get<CLISettings>() ?? new CLISettings();
 
-// Setup telemetry exporter
+// Setup telemetry - export to OTEL Collector
 using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     .AddSource(GenAIAttributes.SourceName)
-    .AddProcessor<LangfuseSpanProcessor>()
-    .AddLangfuseExporter(options =>
+    // .AddProcessor<LangfuseSpanProcessor>()
+    .AddOtlpExporter(options =>
     {
-        options.PublicKey = langfuseSettings.PublicKey;
-        options.SecretKey = langfuseSettings.SecretKey;
-        options.BaseUrl = langfuseSettings.BaseUrl;
+        options.Endpoint = new Uri("http://localhost:4317");
+        options.Protocol = OtlpExportProtocol.Grpc;
     })
     .Build();
 
