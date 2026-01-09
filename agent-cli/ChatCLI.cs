@@ -1,5 +1,6 @@
 using AgentCLI.Constants;
 using AgentCLI.Helpers;
+using AgentCore;
 using Spectre.Console;
 
 namespace AgentCLI;
@@ -9,10 +10,10 @@ namespace AgentCLI;
 /// </summary>
 public class ChatCLI
 {
-    private readonly IChatAgent _agent;
+    private readonly IAgent _agent;
     private readonly string[] _exitKeywords;
 
-    public ChatCLI(IChatAgent agent, ICLISettings? settings = null)
+    public ChatCLI(IAgent agent, ICLISettings? settings = null)
     {
         _agent = agent;
         _exitKeywords = settings?.ExitKeywords ?? new[] { "exit" };
@@ -57,13 +58,13 @@ public class ChatCLI
             AnsiConsole.Markup($"[{ColorConstants.Agent}]{MessageConstants.AgentPrefix}[/]{MessageConstants.Delimiter}");
             
             // Show loading indicator inline with spinner
-            string response = await SpinnerHelper.RunWithSpinnerAsync(
+            AgentResponse response = await SpinnerHelper.RunWithSpinnerAsync(
                 async () => await _agent.GetResponseAsync(userInput),
                 MessageConstants.ThinkingMessage
             );
             
-            // Render markdown response
-            MarkdownHelper.RenderMarkdown(response);
+            // Render markdown response (only the content, not trace ID)
+            MarkdownHelper.RenderMarkdown(response.Content);
             
             // Extra newline after response
             AnsiConsole.WriteLine();

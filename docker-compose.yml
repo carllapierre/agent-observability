@@ -11,5 +11,6 @@ services:
     environment:
       - LANGFUSE_BASE_URL=${LANGFUSE_BASE_URL:-https://cloud.langfuse.com}
       - LANGFUSE_AUTH=${LANGFUSE_AUTH}
+      - APPLICATIONINSIGHTS_CONNECTION_STRING=${APPLICATIONINSIGHTS_CONNECTION_STRING}
     restart: unless-stopped
 

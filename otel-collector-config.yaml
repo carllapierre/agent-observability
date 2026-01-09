@@ -12,10 +12,15 @@ processors:
     send_batch_size: 1024
 
 exporters:
+  # Langfuse exporter
   otlphttp:
     endpoint: ${LANGFUSE_BASE_URL}/api/public/otel
     headers:
       Authorization: "Basic ${LANGFUSE_AUTH}"
+
+  # Azure Application Insights exporter
+  azuremonitor:
+    connection_string: ${APPLICATIONINSIGHTS_CONNECTION_STRING}
 
   debug:
     verbosity: detailed
@@ -25,5 +30,5 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlphttp, debug]
+      exporters: [otlphttp, azuremonitor, debug]
 

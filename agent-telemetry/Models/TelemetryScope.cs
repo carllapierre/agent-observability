@@ -24,6 +24,11 @@ public class TelemetryScope : IDisposable
     }
 
     /// <summary>
+    /// Gets the trace ID for the current activity, or null if no activity exists.
+    /// </summary>
+    public string? TraceId => Activity?.TraceId.ToString();
+
+    /// <summary>
     /// Sets the output attribute on the span.
     /// </summary>
     /// <param name="output">The output object to serialize and record.</param>

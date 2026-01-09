@@ -1,4 +1,4 @@
-using AgentCLI;
+using AgentCore;
 using AgentTelemetry.Interfaces;
 using AgentCore.ChatCompletion.Interfaces;
 using AgentCore.ChatCompletion.Models;
@@ -15,7 +15,7 @@ namespace SimpleAgent;
 /// Demo chat agent implementation.
 /// Owns chat history, tool registry, and manages the tool execution loop.
 /// </summary>
-public class DemoAgent : IChatAgent
+public class DemoAgent : IAgent
 {
     private const string SystemPromptName = "system";
     private const int MaxIterations = 10;
@@ -44,7 +44,7 @@ public class DemoAgent : IChatAgent
         }
     }
 
-    public async Task<string> GetResponseAsync(string userInput)
+    public async Task<AgentResponse> GetResponseAsync(string userInput)
     {
         // Add user message to history first
         _history.Add(new ChatMessage(ChatRole.User, userInput));
@@ -79,7 +79,13 @@ public class DemoAgent : IChatAgent
 
                 agent.SetOutput(content);
                 trace.SetOutput(content);
-                return content;
+                
+                // Return response object with content and trace ID for evaluation purposes
+                return new AgentResponse 
+                { 
+                    Content = content, 
+                    TraceId = trace.TraceId 
+                };
             }
 
             throw new InvalidOperationException($"Max iterations ({MaxIterations}) exceeded");
