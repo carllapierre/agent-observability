@@ -1,3 +1,4 @@
+using System.CommandLine;
 using AgentCLI;
 using AgentTelemetry.Constants;
 using AgentTelemetry.Langfuse;
@@ -7,6 +8,7 @@ using OpenTelemetry.Trace;
 using OpenTelemetry.Exporter;
 using AgentCore.Providers.ChatCompletion.OpenAI;
 using AgentCore.Settings;
+using SimpleAgent.Commands;
 
 // Load configuration
 var configuration = new ConfigurationBuilder()
@@ -31,7 +33,21 @@ using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     })
     .Build();
 
-// Create and run
-var agent = new SimpleAgent.DemoAgent(openAISettings, langfuseSettings);
-var cli = new ChatCLI(agent, cliSettings);
-await cli.RunAsync();
+// Create root command
+var rootCommand = new RootCommand("Demo Agent CLI - Interactive chat and experiment runner");
+
+// Add subcommands
+rootCommand.AddCommand(ChatCommand.Create(openAISettings, langfuseSettings, cliSettings));
+rootCommand.AddCommand(RunExperimentCommand.Create(openAISettings, langfuseSettings));
+rootCommand.AddCommand(EvaluateRunCommand.Create(langfuseSettings));
+
+// Default behavior: run chat if no command specified
+rootCommand.SetHandler(async () =>
+{
+    var agent = new SimpleAgent.DemoAgent(openAISettings, langfuseSettings);
+    var cli = new ChatCLI(agent, cliSettings);
+    await cli.RunAsync();
+});
+
+// Run the command
+return await rootCommand.InvokeAsync(args);
