@@ -1,17 +1,20 @@
 using AgentCLI.Constants;
 using AgentCLI.Helpers;
 using AgentCore;
+using AgentCore.ChatCompletion.Models;
 using Spectre.Console;
 
 namespace AgentCLI;
 
 /// <summary>
 /// Handles the command-line interface for chatting with an agent.
+/// Maintains conversation history on the caller side (stateless agent pattern).
 /// </summary>
 public class ChatCLI
 {
     private readonly IAgent _agent;
     private readonly string[] _exitKeywords;
+    private readonly List<ChatMessage> _history = [];
 
     public ChatCLI(IAgent agent, ICLISettings? settings = null)
     {
@@ -53,15 +56,21 @@ public class ChatCLI
     {
         try
         {
+            // Add user message to history
+            _history.Add(new ChatMessage(ChatRole.User, userInput));
             
             // Print Agent prefix first
             AnsiConsole.Markup($"[{ColorConstants.Agent}]{MessageConstants.AgentPrefix}[/]{MessageConstants.Delimiter}");
             
             // Show loading indicator inline with spinner
+            // Pass full history to the stateless agent
             AgentResponse response = await SpinnerHelper.RunWithSpinnerAsync(
-                async () => await _agent.GetResponseAsync(userInput),
+                async () => await _agent.GetResponseAsync(_history),
                 MessageConstants.ThinkingMessage
             );
+            
+            // Add assistant response to history
+            _history.Add(new ChatMessage(ChatRole.Assistant, response.Content));
             
             // Render markdown response (only the content, not trace ID)
             MarkdownHelper.RenderMarkdown(response.Content);

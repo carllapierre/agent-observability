@@ -28,16 +28,10 @@ public static class RunExperimentCommand
             aliases: ["--name", "-n"],
             description: "The name for this experiment run (auto-generated if not provided)");
 
-        var inputFieldOption = new Option<string>(
-            aliases: ["--input-field", "-i"],
-            description: "The field name in the dataset item input to use as agent input",
-            getDefaultValue: () => "question");
-
         command.AddOption(datasetOption);
         command.AddOption(nameOption);
-        command.AddOption(inputFieldOption);
 
-        command.SetHandler(async (dataset, name, inputField) =>
+        command.SetHandler(async (dataset, name) =>
         {
             var client = new LangfuseClient(new LangfuseClientOptions
             {
@@ -49,38 +43,10 @@ public static class RunExperimentCommand
             var experimentRunner = new ExperimentRunner(client);
             var agent = new DemoAgent(openAISettings, langfuseSettings);
 
-            // Input extractor that gets the specified field from the input object
-            string ExtractInput(object? input)
-            {
-                if (input == null) return string.Empty;
-                
-                if (input is System.Text.Json.JsonElement jsonElement)
-                {
-                    // If input is a simple string, return it directly
-                    if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.String)
-                    {
-                        return jsonElement.GetString() ?? string.Empty;
-                    }
-                    
-                    // If input is an object, try to get the specified field
-                    if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.Object)
-                    {
-                        if (jsonElement.TryGetProperty(inputField, out var fieldValue))
-                        {
-                            return fieldValue.GetString() ?? string.Empty;
-                        }
-                    }
-                }
-                
-                // Fallback: convert to string
-                return input.ToString() ?? string.Empty;
-            }
-
             var result = await experimentRunner.RunAsync(
                 agent: agent,
                 datasetName: dataset,
                 runName: name,
-                inputExtractor: ExtractInput,
                 onProgress: progress =>
                 {
                     Console.WriteLine($"[{progress.Current}/{progress.Total}] Processing item {progress.ItemId}");
@@ -97,7 +63,7 @@ public static class RunExperimentCommand
             Console.WriteLine($"Failures: {result.FailureCount}");
             Console.WriteLine($"Duration: {result.Duration.TotalSeconds:F1}s");
 
-        }, datasetOption, nameOption, inputFieldOption);
+        }, datasetOption, nameOption);
 
         return command;
     }

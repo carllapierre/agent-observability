@@ -1,3 +1,5 @@
+using AgentCore.ChatCompletion.Models;
+
 namespace AgentCore;
 
 /// <summary>
@@ -6,9 +8,10 @@ namespace AgentCore;
 public interface IAgent
 {
     /// <summary>
-    /// Processes user input and returns an agent response.
+    /// Processes chat history and returns an agent response.
+    /// The agent is stateless - full conversation history must be provided on each call.
     /// </summary>
-    /// <param name="userInput">The message from the user</param>
+    /// <param name="history">The conversation history (user and assistant messages)</param>
     /// <returns>The agent's response including content and telemetry metadata</returns>
-    Task<AgentResponse> GetResponseAsync(string userInput);
+    Task<AgentResponse> GetResponseAsync(IReadOnlyList<ChatMessage> history);
 }

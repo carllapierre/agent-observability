@@ -13,7 +13,8 @@ namespace SimpleAgent;
 
 /// <summary>
 /// Demo chat agent implementation.
-/// Owns chat history, tool registry, and manages the tool execution loop.
+/// Stateless agent - caller provides full conversation history on each call.
+/// Manages tool registry and the tool execution loop.
 /// </summary>
 public class DemoAgent : IAgent
 {
@@ -24,8 +25,7 @@ public class DemoAgent : IAgent
     private readonly IChatCompletionProvider _provider;
     private readonly IPromptProvider _promptProvider;
     private readonly IAgentTelemetry _telemetry;
-    private readonly List<ChatMessage> _history = [];
-    private readonly string _sessionId = Guid.NewGuid().ToString();
+    private readonly string? _systemPrompt;
 
     // Register available tools (static types)
     private static readonly ToolRegistry Tools = new(
@@ -40,38 +40,34 @@ public class DemoAgent : IAgent
         _provider = new OpenAIChatCompletionProvider(openAISettings, _telemetry);
         _promptProvider = new LangfusePromptProvider(langfuseSettings);
 
-        // Initialize with system prompt if available
-        var systemPrompt = _promptProvider.GetPrompt(SystemPromptName);
-        if (!string.IsNullOrEmpty(systemPrompt))
-        {
-            _history.Add(new ChatMessage(ChatRole.System, systemPrompt));
-        }
+        // Cache system prompt for use in each request
+        _systemPrompt = _promptProvider.GetPrompt(SystemPromptName);
     }
 
-    public async Task<AgentResponse> GetResponseAsync(string userInput)
+    public async Task<AgentResponse> GetResponseAsync(IReadOnlyList<ChatMessage> history)
     {
-        // Add user message to history first
-        _history.Add(new ChatMessage(ChatRole.User, userInput));
+        // Build working history: prepend system prompt to caller's history
+        var workingHistory = BuildWorkingHistory(history);
 
-        // Start root trace with full conversation history as input
-        using var trace = _telemetry.StartTrace(AgentName, sessionId: _sessionId, input: _history);
+        // Start root trace with conversation history as input (caller provides clean history)
+        using var trace = _telemetry.StartTrace(AgentName, input: history);
 
         try
         {
             // Start agent span (type=agent, appears in graph)
-            using var agent = _telemetry.StartAgent(AgentName, _history);
+            using var agent = _telemetry.StartAgent(AgentName, history);
 
             // LLM iteration loop with max iterations
             for (int i = 0; i < MaxIterations; i++)
             {
                 // GenerationNode: contains the LLM call (type=chain, in graph)
-                var result = await ExecuteGenerationNode();
+                var result = await ExecuteGenerationNode(workingHistory, history);
 
                 // Check if model wants to call tools
                 if (result.HasToolCalls)
                 {
                     // ToolNode: execute tool calls (type=chain, in graph)
-                    ExecuteToolNode(result.ToolCalls!);
+                    ExecuteToolNode(workingHistory, result.ToolCalls!);
 
                     // Continue loop for follow-up response
                     continue;
@@ -79,7 +75,6 @@ public class DemoAgent : IAgent
 
                 // No tool call - we have a final response
                 var content = result.Content ?? string.Empty;
-                _history.Add(new ChatMessage(ChatRole.Assistant, content));
 
                 agent.SetOutput(content);
                 trace.SetOutput(content);
@@ -102,13 +97,32 @@ public class DemoAgent : IAgent
     }
 
     /// <summary>
+    /// Builds the working history by prepending the system prompt to the caller's history.
+    /// </summary>
+    private List<ChatMessage> BuildWorkingHistory(IReadOnlyList<ChatMessage> history)
+    {
+        var workingHistory = new List<ChatMessage>();
+
+        // Prepend system prompt if available
+        if (!string.IsNullOrEmpty(_systemPrompt))
+        {
+            workingHistory.Add(new ChatMessage(ChatRole.System, _systemPrompt));
+        }
+
+        // Add all messages from caller's history
+        workingHistory.AddRange(history);
+
+        return workingHistory;
+    }
+
+    /// <summary>
     /// Executes a generation node containing the LLM call.
     /// </summary>
-    private async Task<ChatCompletionResult> ExecuteGenerationNode()
+    private async Task<ChatCompletionResult> ExecuteGenerationNode(List<ChatMessage> workingHistory, IReadOnlyList<ChatMessage> history)
     {
-        using var node = _telemetry.StartChain("Call LLM", _history);
+        using var node = _telemetry.StartChain("Call LLM", history);
         
-        var result = await _provider.CompleteAsync(_history, Tools.GetDescriptors());
+        var result = await _provider.CompleteAsync(workingHistory, Tools.GetDescriptors());
         
         node.SetOutput(result.HasToolCalls 
             ? new { toolCalls = result.ToolCalls!.Select(t => t.Name) }
@@ -120,12 +134,12 @@ public class DemoAgent : IAgent
     /// <summary>
     /// Executes a tool node containing all tool calls.
     /// </summary>
-    private void ExecuteToolNode(IReadOnlyList<ToolCall> toolCalls)
+    private void ExecuteToolNode(List<ChatMessage> workingHistory, IReadOnlyList<ToolCall> toolCalls)
     {
         using var node = _telemetry.StartChain("Tools", new { tools = toolCalls.Select(t => t.Name) });
 
         // Add the assistant's message with tool call requests
-        _history.Add(new ChatMessage(
+        workingHistory.Add(new ChatMessage(
             Role: ChatRole.Assistant,
             Content: string.Empty,
             ToolCallRequests: toolCalls
@@ -144,7 +158,7 @@ public class DemoAgent : IAgent
                 toolSpan.SetOutput(toolResult);
                 results.Add(new { name = toolCall.Name, result = toolResult });
 
-                _history.Add(new ChatMessage(
+                workingHistory.Add(new ChatMessage(
                     Role: ChatRole.Tool,
                     Content: toolResult,
                     ToolCallId: toolCall.Id,

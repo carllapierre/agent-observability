@@ -1,4 +1,6 @@
+using System.Text.Json;
 using AgentCore;
+using AgentCore.ChatCompletion.Models;
 using Langfuse.Client;
 using Langfuse.Client.Datasets;
 
@@ -22,14 +24,12 @@ public class ExperimentRunner
     /// <param name="agent">The agent to run.</param>
     /// <param name="datasetName">The name of the dataset.</param>
     /// <param name="runName">The name for this experiment run. If null, auto-generates from dataset name and date.</param>
-    /// <param name="inputExtractor">Function to extract the input string from a dataset item's input object.</param>
     /// <param name="onProgress">Optional callback for progress updates.</param>
     /// <returns>Summary of the experiment run.</returns>
     public async Task<ExperimentResult> RunAsync(
         IAgent agent,
         string datasetName,
-        string? runName,
-        Func<object?, string> inputExtractor,
+        string? runName = null,
         Action<ExperimentProgress>? onProgress = null)
     {
         // Auto-generate run name if not provided
@@ -43,19 +43,19 @@ public class ExperimentRunner
         for (int i = 0; i < items.Count; i++)
         {
             var item = items[i];
-            var input = item.Input;
-            var inputString = inputExtractor(input);
+            var history = ParseHistory(item.Input);
+            var inputSummary = GetInputSummary(history);
 
             onProgress?.Invoke(new ExperimentProgress(
                 Current: i + 1,
                 Total: items.Count,
                 ItemId: item.Id,
-                Input: inputString
+                Input: inputSummary
             ));
 
             try
             {
-                var response = await agent.GetResponseAsync(inputString);
+                var response = await agent.GetResponseAsync(history);
 
                 // Link the trace to the dataset run
                 if (!string.IsNullOrEmpty(response.TraceId))
@@ -71,7 +71,7 @@ public class ExperimentRunner
                 results.Add(new ExperimentItemResult(
                     DatasetItemId: item.Id,
                     TraceId: response.TraceId,
-                    Input: inputString,
+                    Input: inputSummary,
                     Output: response.Content,
                     Success: true,
                     Error: null
@@ -82,7 +82,7 @@ public class ExperimentRunner
                 results.Add(new ExperimentItemResult(
                     DatasetItemId: item.Id,
                     TraceId: null,
-                    Input: inputString,
+                    Input: inputSummary,
                     Output: null,
                     Success: false,
                     Error: ex.Message
@@ -99,6 +99,80 @@ public class ExperimentRunner
             Duration: DateTime.UtcNow - startTime,
             Items: results
         );
+    }
+
+    /// <summary>
+    /// Parses the dataset item input into a chat history.
+    /// Supports both array format [{role, content}, ...] and single string format.
+    /// </summary>
+    private static List<ChatMessage> ParseHistory(object? input)
+    {
+        if (input is null)
+            return [];
+
+        // Try to parse as JSON array of messages
+        if (input is JsonElement jsonElement)
+        {
+            if (jsonElement.ValueKind == JsonValueKind.Array)
+            {
+                return ParseJsonArray(jsonElement);
+            }
+            
+            if (jsonElement.ValueKind == JsonValueKind.String)
+            {
+                var stringValue = jsonElement.GetString();
+                return string.IsNullOrEmpty(stringValue) 
+                    ? [] 
+                    : [new ChatMessage(ChatRole.User, stringValue)];
+            }
+        }
+
+        // Fallback: treat as string
+        var inputString = input.ToString();
+        return string.IsNullOrEmpty(inputString) 
+            ? [] 
+            : [new ChatMessage(ChatRole.User, inputString)];
+    }
+
+    /// <summary>
+    /// Parses a JSON array of chat messages.
+    /// </summary>
+    private static List<ChatMessage> ParseJsonArray(JsonElement jsonArray)
+    {
+        var messages = new List<ChatMessage>();
+
+        foreach (var element in jsonArray.EnumerateArray())
+        {
+            var role = element.GetProperty("role").GetString()?.ToLowerInvariant();
+            var content = element.GetProperty("content").GetString() ?? string.Empty;
+
+            var chatRole = role switch
+            {
+                "user" => ChatRole.User,
+                "assistant" => ChatRole.Assistant,
+                _ => ChatRole.User // Default to user for unknown roles
+            };
+
+            messages.Add(new ChatMessage(chatRole, content));
+        }
+
+        return messages;
+    }
+
+    /// <summary>
+    /// Gets a summary string of the input for progress reporting.
+    /// </summary>
+    private static string GetInputSummary(IReadOnlyList<ChatMessage> history)
+    {
+        if (history.Count == 0)
+            return "(empty)";
+
+        if (history.Count == 1)
+            return history[0].Content;
+
+        // For multi-turn, show last user message with context
+        var lastUserMessage = history.LastOrDefault(m => m.Role == ChatRole.User);
+        return lastUserMessage?.Content ?? $"({history.Count} messages)";
     }
 
     /// <summary>
