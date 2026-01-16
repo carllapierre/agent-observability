@@ -5,6 +5,7 @@ using OpenAI.Chat;
 using AgentCore.ChatCompletion.Interfaces;
 using AgentCore.ChatCompletion.Models;
 using AgentCore.Tools.Models;
+using AgentCore.Utils;
 using ChatMessage = AgentCore.ChatCompletion.Models.ChatMessage;
 using ToolCall = AgentCore.ChatCompletion.Models.ToolCall;
 
@@ -82,6 +83,65 @@ public sealed class OpenAIChatCompletionProvider : IChatCompletionProvider
                 Content: content,
                 ToolCalls: null
             );
+        }
+        catch (Exception ex)
+        {
+            generation.RecordException(ex);
+            throw;
+        }
+    }
+
+    public async Task<T> CompleteAsync<T>(
+        IReadOnlyList<ChatMessage> messages,
+        string schemaName) where T : class
+    {
+        // Start generation span
+        using var generation = _telemetry.StartGeneration(new GenerationContext
+        {
+            Provider = "openai",
+            Model = _model,
+            Input = messages
+        });
+
+        try
+        {
+            var openAIMessages = TranslateMessages(messages);
+
+            // Generate JSON schema from type T
+            var schema = JsonSchemaGenerator.Generate<T>();
+
+            var options = new ChatCompletionOptions
+            {
+                ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
+                    schemaName,
+                    BinaryData.FromString(schema),
+                    jsonSchemaIsStrict: true
+                )
+            };
+
+            var completion = await _client.CompleteChatAsync(openAIMessages, options);
+            var choice = completion.Value;
+
+            // Record token usage if available
+            if (completion.Value.Usage is { } usage)
+            {
+                generation.SetTokenUsage(usage.InputTokenCount, usage.OutputTokenCount);
+            }
+
+            // Record response model
+            generation.SetResponseModel(choice.Model);
+
+            var content = choice.Content[0].Text;
+            generation.SetCompletion(content);
+
+            // Deserialize and return typed object
+            var jsonOptions = new JsonSerializerOptions 
+            { 
+                PropertyNameCaseInsensitive = true,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            };
+            return JsonSerializer.Deserialize<T>(content, jsonOptions)
+                ?? throw new InvalidOperationException("Failed to deserialize structured output");
         }
         catch (Exception ex)
         {

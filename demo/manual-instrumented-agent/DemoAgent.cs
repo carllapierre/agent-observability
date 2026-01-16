@@ -1,5 +1,6 @@
 using AgentCore;
 using AgentTelemetry.Interfaces;
+using AgentCore.ChatCompletion.Extensions;
 using AgentCore.ChatCompletion.Interfaces;
 using AgentCore.ChatCompletion.Models;
 using AgentCore.Prompts.Interfaces;
@@ -8,6 +9,7 @@ using AgentCore.Providers.Prompt;
 using AgentCore.Settings;
 using AgentCore.Tools.Services;
 using AgentTools;
+using SimpleAgent.Models;
 
 namespace SimpleAgent;
 
@@ -60,30 +62,46 @@ public class DemoAgent : IAgent
             // ReAct loop with max iterations
             for (int i = 0; i < MaxIterations; i++)
             {
-                // ReAct Step 1: Reasoning (Thought) - think about how to approach the request
-                var reasoning = await ExecuteReasoningNode(history);
-                workingHistory.Add(new ChatMessage(ChatRole.Assistant, $"[Reasoning]\n{reasoning}"));
+                // ReAct Step 1: Reasoning (Thought) - think and decide route
+                // Pass workingHistory so reasoning sees tool results from previous iterations
+                var reasoningResult = await ExecuteReasoningNode(workingHistory);
+                workingHistory.Add(new ChatMessage(ChatRole.Assistant, $"[Reasoning]\n{reasoningResult.Reasoning}"));
 
-                // ReAct Step 2: Tool Selection (Action) - decide which tools to call
+                // Route based on reasoning decision
+                if (reasoningResult.Route == Route.Answer)
+                {
+                    // Direct answer path - no tools needed
+                    var answer = await ExecuteAnswerNode(workingHistory, history);
+
+                    agent.SetOutput(answer);
+                    trace.SetOutput(answer);
+
+                    return new AgentResponse
+                    {
+                        Content = answer,
+                        TraceId = trace.TraceId
+                    };
+                }
+
+                // Tool path - ReAct Step 2: Tool Selection (Action)
                 var result = await ExecuteToolSelectionNode(workingHistory, history);
 
                 // Check if model wants to call tools
                 if (result.HasToolCalls)
                 {
-                    // ReAct Step 3: Tool Execution (Observation) - execute tool calls
+                    // ReAct Step 3: Tool Execution (Observation)
                     ExecuteToolNode(workingHistory, result.ToolCalls!);
 
-                    // Continue loop for follow-up reasoning and response
+                    // Continue loop for follow-up reasoning
                     continue;
                 }
 
-                // No tool call - we have a final response
+                // Fallback if tool selection returns text without tool calls
                 var content = result.Content ?? string.Empty;
 
                 agent.SetOutput(content);
                 trace.SetOutput(content);
                 
-                // Return response object with content and trace ID for evaluation purposes
                 return new AgentResponse 
                 { 
                     Content = content, 
@@ -120,27 +138,43 @@ public class DemoAgent : IAgent
     }
 
     /// <summary>
-    /// Executes the reasoning node - thinks step-by-step about how to approach the request.
-    /// Part of the ReAct pattern: Reasoning → Action → Observation
+    /// Executes the reasoning node - thinks step-by-step and decides the route.
+    /// Uses structured outputs for guaranteed schema compliance.
     /// </summary>
-    private async Task<string> ExecuteReasoningNode(IReadOnlyList<ChatMessage> history)
+    private async Task<ReasoningResult> ExecuteReasoningNode(List<ChatMessage> workingHistory)
     {
-        using var node = _telemetry.StartChain("Reasoning", history);
+        using var node = _telemetry.StartChain("Reasoning", workingHistory);
 
         var reasoningPrompt = _promptProvider.GetPrompt("reasoning",
             new Dictionary<string, string> { ["tools"] = Tools.FormatAsText() });
 
-        var reasoningHistory = new List<ChatMessage>
-        {
-            new(ChatRole.System, reasoningPrompt ?? "Think step by step about how to approach this request."),
-            history.Last()
-        };
+        // Build reasoning context: system prompt + history converted to text format
+        var reasoningHistory = workingHistory
+            .Where(m => m.Role != ChatRole.System)
+            .ToTextFormat()
+            .Prepend(new ChatMessage(ChatRole.System, reasoningPrompt ?? "Think step by step about how to approach this request."))
+            .ToList();
 
-        // Call LLM WITHOUT tools - pure text reasoning
-        var result = await _provider.CompleteAsync(reasoningHistory, tools: null);
+        // Use structured outputs - returns typed ReasoningResult
+        var result = await _provider.CompleteAsync<ReasoningResult>(reasoningHistory, "reasoning_result");
 
-        node.SetOutput(result.Content);
-        return result.Content ?? string.Empty;
+        node.SetOutput(new { result.Reasoning, route = result.Route.ToString() });
+        return result;
+    }
+
+    /// <summary>
+    /// Executes the answer node - generates a direct response without tools.
+    /// </summary>
+    private async Task<string> ExecuteAnswerNode(List<ChatMessage> workingHistory, IReadOnlyList<ChatMessage> history)
+    {
+        using var node = _telemetry.StartChain("Answer", history);
+
+        // Generate direct answer without tools
+        var result = await _provider.CompleteAsync(workingHistory, tools: null);
+        var content = result.Content ?? string.Empty;
+
+        node.SetOutput(content);
+        return content;
     }
 
     /// <summary>

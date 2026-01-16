@@ -19,5 +19,17 @@ public interface IChatCompletionProvider
         IReadOnlyList<ChatMessage> messages,
         IReadOnlyList<ToolDescriptor>? tools = null
     );
+
+    /// <summary>
+    /// Sends messages and returns a structured response of type T.
+    /// Uses structured outputs for guaranteed schema compliance.
+    /// </summary>
+    /// <typeparam name="T">The type to deserialize the response into</typeparam>
+    /// <param name="messages">The conversation history</param>
+    /// <param name="schemaName">Name for the JSON schema</param>
+    /// <returns>The deserialized response object</returns>
+    Task<T> CompleteAsync<T>(
+        IReadOnlyList<ChatMessage> messages,
+        string schemaName) where T : class;
 }
 
