@@ -4,8 +4,11 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>Tools</RootNamespace>
+    <RootNamespace>AgentTools</RootNamespace>
   </PropertyGroup>
 
-</Project>
+  <ItemGroup>
+    <ProjectReference Include="..\agent-core\AgentCore.csproj" />
+  </ItemGroup>
 
+</Project>

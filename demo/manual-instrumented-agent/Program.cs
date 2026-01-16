@@ -1,13 +1,13 @@
 using System.CommandLine;
 using AgentCLI;
 using AgentTelemetry.Constants;
-using AgentTelemetry.Langfuse;
 using Microsoft.Extensions.Configuration;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Exporter;
 using AgentCore.Providers.ChatCompletion.OpenAI;
 using AgentCore.Settings;
+using AgentTools;
 using SimpleAgent.Commands;
 
 // Load configuration
@@ -20,12 +20,15 @@ var configuration = new ConfigurationBuilder()
 // Get settings
 var openAISettings = configuration.GetSection("OpenAI").Get<OpenAISettings>()!;
 var langfuseSettings = configuration.GetSection("Langfuse").Get<LangfuseSettings>()!;
+var tavilySettings = configuration.GetSection("Tavily").Get<TavilySettings>() ?? new TavilySettings();
 var cliSettings = configuration.GetSection("CLI").Get<CLISettings>() ?? new CLISettings();
+
+// Configure static tool settings
+TavilySearchTool.Settings = tavilySettings;
 
 // Setup telemetry - export to OTEL Collector
 using var tracerProvider = Sdk.CreateTracerProviderBuilder()
     .AddSource(GenAIAttributes.SourceName)
-    // .AddProcessor<LangfuseSpanProcessor>()
     .AddOtlpExporter(options =>
     {
         options.Endpoint = new Uri("http://localhost:4317");

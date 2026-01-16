@@ -7,7 +7,7 @@ using AgentCore.Providers.ChatCompletion.OpenAI;
 using AgentCore.Providers.Prompt;
 using AgentCore.Settings;
 using AgentCore.Tools.Services;
-using SimpleAgent.Tools;
+using AgentTools;
 
 namespace SimpleAgent;
 
@@ -27,8 +27,12 @@ public class DemoAgent : IAgent
     private readonly List<ChatMessage> _history = [];
     private readonly string _sessionId = Guid.NewGuid().ToString();
 
-    // Register available tools
-    private static readonly ToolRegistry Tools = new(typeof(RollDiceTool), typeof(DealCardsTool));
+    // Register available tools (static types)
+    private static readonly ToolRegistry Tools = new(
+        typeof(RollDiceTool),
+        typeof(DealCardsTool),
+        typeof(TavilySearchTool)
+    );
 
     public DemoAgent(OpenAISettings openAISettings, LangfuseSettings langfuseSettings)
     {

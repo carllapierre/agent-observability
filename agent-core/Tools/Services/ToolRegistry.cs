@@ -83,6 +83,7 @@ public class ToolRegistry
             {
                 throw new ArgumentException($"Missing required parameter: {paramName}");
             }
+
         }
 
         var result = method.Invoke(null, args);

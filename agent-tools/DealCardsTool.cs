@@ -1,18 +1,25 @@
-namespace Tools;
+using AgentCore.Tools.Attributes;
 
-public static class DealCards
+namespace AgentTools;
+
+/// <summary>
+/// Tool that deals cards from a standard 52-card deck.
+/// </summary>
+[Tool("deal_cards", Description = "Deals a specified number of cards from a standard 52-card deck (no jokers)")]
+public static class DealCardsTool
 {
     private static readonly string[] Suits = ["Hearts", "Diamonds", "Clubs", "Spades"];
     private static readonly string[] Ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King", "Ace"];
     private static readonly Random _random = new();
 
-    public static string[] Execute(int count = 5)
+    public static string Execute(
+        [ToolParameter("The number of cards to deal (1-52)")] int count = 5)
     {
         if (count < 1)
-            throw new ArgumentException("count must be at least 1", nameof(count));
-        
+            return "Error: count must be at least 1";
+
         if (count > 52)
-            throw new ArgumentException("count cannot exceed 52 (deck size)", nameof(count));
+            return "Error: count cannot exceed 52 (deck size)";
 
         // Build a full deck (no jokers)
         var deck = new List<string>();
@@ -26,7 +33,8 @@ public static class DealCards
 
         // Shuffle and deal
         var shuffled = deck.OrderBy(_ => _random.Next()).ToList();
-        return shuffled.Take(count).ToArray();
+        var cards = shuffled.Take(count).ToArray();
+
+        return string.Join(", ", cards);
     }
 }
-
