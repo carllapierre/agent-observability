@@ -12,5 +12,12 @@ services:
       - LANGFUSE_BASE_URL=${LANGFUSE_BASE_URL:-https://cloud.langfuse.com}
       - LANGFUSE_AUTH=${LANGFUSE_AUTH}
       - APPLICATIONINSIGHTS_CONNECTION_STRING=${APPLICATIONINSIGHTS_CONNECTION_STRING}
+    networks:
+      - default
+      - langfuse
     restart: unless-stopped
 
+networks:
+  langfuse:
+    name: docker_default
+    external: true

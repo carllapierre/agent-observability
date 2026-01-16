@@ -13,5 +13,15 @@ public interface IPromptProvider
     /// <param name="version">Optional specific version number</param>
     /// <returns>The prompt content, or null if not available</returns>
     string? GetPrompt(string key, string? label = null, int? version = null);
+
+    /// <summary>
+    /// Gets a prompt by key with template variable substitution.
+    /// </summary>
+    /// <param name="key">The prompt key/name</param>
+    /// <param name="variables">Template variables to substitute (e.g., {{variable_name}})</param>
+    /// <param name="label">Optional label (e.g., "production", "staging")</param>
+    /// <param name="version">Optional specific version number</param>
+    /// <returns>The compiled prompt content, or null if not available</returns>
+    string? GetPrompt(string key, IDictionary<string, string> variables, string? label = null, int? version = null);
 }
 

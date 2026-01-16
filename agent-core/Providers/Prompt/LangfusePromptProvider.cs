@@ -26,6 +26,11 @@ public class LangfusePromptProvider : IPromptProvider
 
     public string? GetPrompt(string key, string? label = null, int? version = null)
     {
+        return GetPrompt(key, new Dictionary<string, string>(), label, version);
+    }
+
+    public string? GetPrompt(string key, IDictionary<string, string> variables, string? label = null, int? version = null)
+    {
         try
         {
             // Fetch prompt from Langfuse (synchronously for interface compatibility)
@@ -35,8 +40,8 @@ public class LangfusePromptProvider : IPromptProvider
                 label: label
             ).GetAwaiter().GetResult();
 
-            // Return the compiled prompt (no variables)
-            return prompt.Compile(new Dictionary<string, string>());
+            // Return the compiled prompt with variable substitution
+            return prompt.Compile(variables);
         }
         catch (Exception ex)
         {

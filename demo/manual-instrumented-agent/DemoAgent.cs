@@ -57,19 +57,23 @@ public class DemoAgent : IAgent
             // Start agent span (type=agent, appears in graph)
             using var agent = _telemetry.StartAgent(AgentName, history);
 
-            // LLM iteration loop with max iterations
+            // ReAct loop with max iterations
             for (int i = 0; i < MaxIterations; i++)
             {
-                // GenerationNode: contains the LLM call (type=chain, in graph)
-                var result = await ExecuteGenerationNode(workingHistory, history);
+                // ReAct Step 1: Reasoning (Thought) - think about how to approach the request
+                var reasoning = await ExecuteReasoningNode(history);
+                workingHistory.Add(new ChatMessage(ChatRole.Assistant, $"[Reasoning]\n{reasoning}"));
+
+                // ReAct Step 2: Tool Selection (Action) - decide which tools to call
+                var result = await ExecuteToolSelectionNode(workingHistory, history);
 
                 // Check if model wants to call tools
                 if (result.HasToolCalls)
                 {
-                    // ToolNode: execute tool calls (type=chain, in graph)
+                    // ReAct Step 3: Tool Execution (Observation) - execute tool calls
                     ExecuteToolNode(workingHistory, result.ToolCalls!);
 
-                    // Continue loop for follow-up response
+                    // Continue loop for follow-up reasoning and response
                     continue;
                 }
 
@@ -116,11 +120,35 @@ public class DemoAgent : IAgent
     }
 
     /// <summary>
-    /// Executes a generation node containing the LLM call.
+    /// Executes the reasoning node - thinks step-by-step about how to approach the request.
+    /// Part of the ReAct pattern: Reasoning → Action → Observation
     /// </summary>
-    private async Task<ChatCompletionResult> ExecuteGenerationNode(List<ChatMessage> workingHistory, IReadOnlyList<ChatMessage> history)
+    private async Task<string> ExecuteReasoningNode(IReadOnlyList<ChatMessage> history)
     {
-        using var node = _telemetry.StartChain("Call LLM", history);
+        using var node = _telemetry.StartChain("Reasoning", history);
+
+        var reasoningPrompt = _promptProvider.GetPrompt("reasoning",
+            new Dictionary<string, string> { ["tools"] = Tools.FormatAsText() });
+
+        var reasoningHistory = new List<ChatMessage>
+        {
+            new(ChatRole.System, reasoningPrompt ?? "Think step by step about how to approach this request."),
+            history.Last()
+        };
+
+        // Call LLM WITHOUT tools - pure text reasoning
+        var result = await _provider.CompleteAsync(reasoningHistory, tools: null);
+
+        node.SetOutput(result.Content);
+        return result.Content ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Executes the tool selection node - decides which tools to call based on reasoning.
+    /// </summary>
+    private async Task<ChatCompletionResult> ExecuteToolSelectionNode(List<ChatMessage> workingHistory, IReadOnlyList<ChatMessage> history)
+    {
+        using var node = _telemetry.StartChain("Tool Selection", history);
         
         var result = await _provider.CompleteAsync(workingHistory, Tools.GetDescriptors());
         

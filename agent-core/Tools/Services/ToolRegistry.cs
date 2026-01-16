@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using AgentCore.ChatCompletion.Models;
 using AgentCore.Tools.Attributes;
@@ -50,6 +51,24 @@ public class ToolRegistry
     }
 
     public IReadOnlyList<ToolDescriptor> GetDescriptors() => _tools.Values.Select(t => t.Descriptor).ToList();
+
+    /// <summary>
+    /// Formats all registered tools as human-readable text for use in prompts.
+    /// </summary>
+    public string FormatAsText()
+    {
+        var sb = new StringBuilder();
+        foreach (var tool in _tools.Values.Select(t => t.Descriptor))
+        {
+            sb.AppendLine($"- **{tool.Name}**: {tool.Description}");
+            foreach (var param in tool.Parameters)
+            {
+                var required = param.IsRequired ? "(required)" : "(optional)";
+                sb.AppendLine($"  - {param.Name} ({param.Type}) {required}: {param.Description}");
+            }
+        }
+        return sb.ToString();
+    }
 
     public string Execute(ToolCall toolCall)
     {
