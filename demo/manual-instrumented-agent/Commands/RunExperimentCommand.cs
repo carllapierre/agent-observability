@@ -13,7 +13,8 @@ public static class RunExperimentCommand
 {
     public static Command Create(
         OpenAISettings openAISettings,
-        LangfuseSettings langfuseSettings)
+        LangfuseSettings langfuseSettings,
+        TavilySettings tavilySettings)
     {
         var command = new Command("run-experiment", "Run the agent against a Langfuse dataset");
 
@@ -41,7 +42,7 @@ public static class RunExperimentCommand
             });
 
             var experimentRunner = new ExperimentRunner(client);
-            var agent = new DemoAgent(openAISettings, langfuseSettings);
+            var agent = new DemoAgent(openAISettings, langfuseSettings, tavilySettings);
 
             var result = await experimentRunner.RunAsync(
                 agent: agent,

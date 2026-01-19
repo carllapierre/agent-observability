@@ -21,7 +21,6 @@
     <ProjectReference Include="..\..\agent-telemetry\AgentTelemetry.csproj" />
     <ProjectReference Include="..\..\agent-core\AgentCore.csproj" />
     <ProjectReference Include="..\..\agent-evals\AgentEvals.csproj" />
-    <ProjectReference Include="..\..\agent-tools\AgentTools.csproj" />
   </ItemGroup>
 
 </Project>

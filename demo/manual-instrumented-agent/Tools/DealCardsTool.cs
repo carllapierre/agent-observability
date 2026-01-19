@@ -1,18 +1,18 @@
 using AgentCore.Tools.Attributes;
 
-namespace AgentTools;
+namespace SimpleAgent.Tools;
 
 /// <summary>
 /// Tool that deals cards from a standard 52-card deck.
 /// </summary>
 [Tool("deal_cards", Description = "Deals a specified number of cards from a standard 52-card deck (no jokers)")]
-public static class DealCardsTool
+public class DealCardsTool
 {
     private static readonly string[] Suits = ["Hearts", "Diamonds", "Clubs", "Spades"];
     private static readonly string[] Ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King", "Ace"];
-    private static readonly Random _random = new();
+    private readonly Random _random = new();
 
-    public static string Execute(
+    public string Execute(
         [ToolParameter("The number of cards to deal (1-52)")] int count = 5)
     {
         if (count < 1)

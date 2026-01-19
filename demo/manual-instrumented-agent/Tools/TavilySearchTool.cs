@@ -2,42 +2,61 @@ using System.Text;
 using System.Text.Json;
 using AgentCore.Settings;
 using AgentCore.Tools.Attributes;
+using AgentTelemetry.Interfaces;
 
-namespace AgentTools;
+namespace SimpleAgent.Tools;
 
 /// <summary>
 /// Tool that performs web searches using the Tavily API.
-/// Configure by setting TavilySearchTool.Settings before use.
+/// Includes built-in retriever telemetry for observability.
 /// </summary>
 [Tool("web_search", Description = "Performs a web search to find current information, news, or facts using Tavily")]
-public static class TavilySearchTool
+public class TavilySearchTool
 {
     private static readonly HttpClient _httpClient = new();
+    
+    private readonly TavilySettings _settings;
+    private readonly IAgentTelemetry? _telemetry;
 
-    /// <summary>
-    /// Static settings - must be configured before use.
-    /// </summary>
-    public static TavilySettings Settings { get; set; } = new();
+    public TavilySearchTool(TavilySettings settings, IAgentTelemetry? telemetry = null)
+    {
+        _settings = settings;
+        _telemetry = telemetry;
+    }
 
-    public static string Execute(
+    public string Execute(
         [ToolParameter("The search query to find information for")] string query)
+    {
+        // Wrap execution with retriever span if telemetry is configured
+        if (_telemetry != null)
+        {
+            using var retriever = _telemetry.StartRetriever("Web Search", new { query });
+            var result = ExecuteSearch(query);
+            retriever.SetOutput(result);
+            return result;
+        }
+
+        return ExecuteSearch(query);
+    }
+
+    private string ExecuteSearch(string query)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(query))
                 return "Error: query parameter is required";
 
-            if (string.IsNullOrEmpty(Settings.ApiKey))
-                return "Error: Tavily API key is not configured. Set TavilySearchTool.Settings or add to appsettings.json";
+            if (string.IsNullOrEmpty(_settings.ApiKey))
+                return "Error: Tavily API key is not configured";
 
             // Build the payload
             var payload = new
             {
-                api_key = Settings.ApiKey,
+                api_key = _settings.ApiKey,
                 query = query,
-                search_depth = Settings.SearchDepth,
-                include_answer = Settings.IncludeAnswer,
-                max_results = Settings.MaxResults
+                search_depth = _settings.SearchDepth,
+                include_answer = _settings.IncludeAnswer,
+                max_results = _settings.MaxResults
             };
 
             var content = new StringContent(

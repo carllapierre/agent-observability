@@ -1,4 +1,13 @@
+# =============================================================================
+# OpenTelemetry Collector Configuration for Agent Observability Demo
+# =============================================================================
+# This collector receives traces from the agent and routes them to:
+# - Langfuse (with observation type transformations for graph view)
+# - Azure Application Insights (raw GenAI semantic conventions)
+# =============================================================================
+
 receivers:
+  # OTLP receiver - accepts traces from the agent via gRPC or HTTP
   otlp:
     protocols:
       grpc:
@@ -7,28 +16,43 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 processors:
+  # Batch processor - groups spans for efficient export
   batch:
     timeout: 1s
     send_batch_size: 1024
 
+  # Langfuse-specific transform processor
+  # Maps gen_ai.operation.name to langfuse.observation.type for graph visualization
+  # Only applied to chain and retriever spans (generation/tool/agent handled by Langfuse)
+  transform/langfuse:
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["langfuse.observation.type"], attributes["gen_ai.operation.name"]) where attributes["gen_ai.operation.name"] == "chain"
+          - set(attributes["langfuse.observation.type"], attributes["gen_ai.operation.name"]) where attributes["gen_ai.operation.name"] == "retriever"
+
 exporters:
-  # Langfuse exporter
-  otlphttp:
+  # Langfuse - AI observability platform with trace visualization
+  otlphttp/langfuse:
     endpoint: ${LANGFUSE_BASE_URL}/api/public/otel
     headers:
       Authorization: "Basic ${LANGFUSE_AUTH}"
 
-  # Azure Application Insights exporter
-  azuremonitor:
+  # Azure Application Insights - enterprise APM integration (native exporter)
+  azuremonitor/azure:
     connection_string: ${APPLICATIONINSIGHTS_CONNECTION_STRING}
-
-  debug:
-    verbosity: detailed
 
 service:
   pipelines:
-    traces:
+    # Langfuse pipeline - includes observation type transformation
+    traces/langfuse:
+      receivers: [otlp]
+      processors: [transform/langfuse, batch]
+      exporters: [otlphttp/langfuse]
+
+    # Azure pipeline - raw GenAI semantic conventions (no Langfuse transforms)
+    traces/azure:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlphttp, azuremonitor, debug]
+      exporters: [azuremonitor/azure]
 

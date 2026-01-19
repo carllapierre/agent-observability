@@ -8,8 +8,8 @@ using AgentCore.Providers.ChatCompletion.OpenAI;
 using AgentCore.Providers.Prompt;
 using AgentCore.Settings;
 using AgentCore.Tools.Services;
-using AgentTools;
 using SimpleAgent.Models;
+using SimpleAgent.Tools;
 
 namespace SimpleAgent;
 
@@ -27,20 +27,21 @@ public class DemoAgent : IAgent
     private readonly IChatCompletionProvider _provider;
     private readonly IPromptProvider _promptProvider;
     private readonly IAgentTelemetry _telemetry;
+    private readonly ToolRegistry _tools;
     private readonly string? _systemPrompt;
 
-    // Register available tools (static types)
-    private static readonly ToolRegistry Tools = new(
-        typeof(RollDiceTool),
-        typeof(DealCardsTool),
-        typeof(TavilySearchTool)
-    );
-
-    public DemoAgent(OpenAISettings openAISettings, LangfuseSettings langfuseSettings)
+    public DemoAgent(OpenAISettings openAISettings, LangfuseSettings langfuseSettings, TavilySettings tavilySettings)
     {
         _telemetry = new AgentTelemetry.Services.AgentTelemetry();
         _provider = new OpenAIChatCompletionProvider(openAISettings, _telemetry);
         _promptProvider = new LangfusePromptProvider(langfuseSettings);
+
+        // Register tools with their dependencies injected via constructors
+        _tools = new ToolRegistry(
+            new RollDiceTool(),
+            new DealCardsTool(),
+            new TavilySearchTool(tavilySettings, _telemetry)
+        );
 
         // Cache system prompt for use in each request
         _systemPrompt = _promptProvider.GetPrompt(SystemPromptName);
@@ -83,21 +84,17 @@ public class DemoAgent : IAgent
                     };
                 }
 
-                // Tool path - ReAct Step 2: Tool Selection (Action)
-                var result = await ExecuteToolSelectionNode(workingHistory, history);
+                // Tool path - LLM selects and executes tools
+                var toolResult = await ExecuteToolNode(workingHistory);
 
-                // Check if model wants to call tools
-                if (result.HasToolCalls)
+                // If tools were executed, continue loop for follow-up reasoning
+                if (toolResult.ToolsExecuted)
                 {
-                    // ReAct Step 3: Tool Execution (Observation)
-                    ExecuteToolNode(workingHistory, result.ToolCalls!);
-
-                    // Continue loop for follow-up reasoning
                     continue;
                 }
 
-                // Fallback if tool selection returns text without tool calls
-                var content = result.Content ?? string.Empty;
+                // Fallback if LLM returned text without tool calls
+                var content = toolResult.Content ?? string.Empty;
 
                 agent.SetOutput(content);
                 trace.SetOutput(content);
@@ -146,7 +143,7 @@ public class DemoAgent : IAgent
         using var node = _telemetry.StartChain("Reasoning", workingHistory);
 
         var reasoningPrompt = _promptProvider.GetPrompt("reasoning",
-            new Dictionary<string, string> { ["tools"] = Tools.FormatAsText() });
+            new Dictionary<string, string> { ["tools"] = _tools.FormatAsText() });
 
         // Build reasoning context: system prompt + history converted to text format
         var reasoningHistory = workingHistory
@@ -178,27 +175,24 @@ public class DemoAgent : IAgent
     }
 
     /// <summary>
-    /// Executes the tool selection node - decides which tools to call based on reasoning.
+    /// Executes the tool node - LLM selects tools and executes them.
+    /// Combines tool selection and execution into a single observable node.
     /// </summary>
-    private async Task<ChatCompletionResult> ExecuteToolSelectionNode(List<ChatMessage> workingHistory, IReadOnlyList<ChatMessage> history)
+    private async Task<ToolNodeResult> ExecuteToolNode(List<ChatMessage> workingHistory)
     {
-        using var node = _telemetry.StartChain("Tool Selection", history);
-        
-        var result = await _provider.CompleteAsync(workingHistory, Tools.GetDescriptors());
-        
-        node.SetOutput(result.HasToolCalls 
-            ? new { toolCalls = result.ToolCalls!.Select(t => t.Name) }
-            : result.Content);
-        
-        return result;
-    }
+        using var node = _telemetry.StartChain("Tools", workingHistory);
 
-    /// <summary>
-    /// Executes a tool node containing all tool calls.
-    /// </summary>
-    private void ExecuteToolNode(List<ChatMessage> workingHistory, IReadOnlyList<ToolCall> toolCalls)
-    {
-        using var node = _telemetry.StartChain("Tools", new { tools = toolCalls.Select(t => t.Name) });
+        // LLM call to select tools
+        var llmResult = await _provider.CompleteAsync(workingHistory, _tools.GetDescriptors());
+
+        // If no tool calls, return the text content
+        if (!llmResult.HasToolCalls)
+        {
+            node.SetOutput(llmResult.Content);
+            return new ToolNodeResult(ToolsExecuted: false, Content: llmResult.Content);
+        }
+
+        var toolCalls = llmResult.ToolCalls!;
 
         // Add the assistant's message with tool call requests
         workingHistory.Add(new ChatMessage(
@@ -216,7 +210,7 @@ public class DemoAgent : IAgent
             
             try
             {
-                var toolResult = Tools.Execute(toolCall);
+                var toolResult = _tools.Execute(toolCall);
                 toolSpan.SetOutput(toolResult);
                 results.Add(new { name = toolCall.Name, result = toolResult });
 
@@ -234,6 +228,12 @@ public class DemoAgent : IAgent
             }
         }
 
-        node.SetOutput(new { results });
+        node.SetOutput(new { toolCalls = toolCalls.Select(t => t.Name), results });
+        return new ToolNodeResult(ToolsExecuted: true, Content: null);
     }
+
+    /// <summary>
+    /// Result from the tool node execution.
+    /// </summary>
+    private record ToolNodeResult(bool ToolsExecuted, string? Content);
 }

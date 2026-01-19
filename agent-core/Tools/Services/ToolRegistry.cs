@@ -9,27 +9,34 @@ namespace AgentCore.Tools.Services;
 
 /// <summary>
 /// Registry for discovering and executing tools via reflection.
+/// Supports both static tools (types) and instance tools (objects).
 /// </summary>
 public class ToolRegistry
 {
     private readonly Dictionary<string, ToolInfo> _tools = new();
 
-    public ToolRegistry(params Type[] toolTypes)
+    /// <summary>
+    /// Creates a registry from tool instances.
+    /// </summary>
+    public ToolRegistry(params object[] toolInstances)
     {
-        foreach (var type in toolTypes)
+        foreach (var instance in toolInstances)
         {
-            Register(type);
+            Register(instance);
         }
     }
 
-    private void Register(Type toolType)
+    private void Register(object toolInstance)
     {
+        var toolType = toolInstance.GetType();
         var toolAttr = toolType.GetCustomAttribute<ToolAttribute>();
         if (toolAttr is null)
             throw new ArgumentException($"Type {toolType.Name} is not decorated with [Tool]");
 
-        var executeMethod = toolType.GetMethod("Execute", BindingFlags.Public | BindingFlags.Static)
-            ?? throw new ArgumentException($"Tool {toolType.Name} must have a static Execute method");
+        // Try instance method first, then static
+        var executeMethod = toolType.GetMethod("Execute", BindingFlags.Public | BindingFlags.Instance)
+            ?? toolType.GetMethod("Execute", BindingFlags.Public | BindingFlags.Static)
+            ?? throw new ArgumentException($"Tool {toolType.Name} must have an Execute method");
 
         var parameters = executeMethod.GetParameters()
             .Select(p => new ToolParameterDescriptor(
@@ -47,7 +54,7 @@ public class ToolRegistry
             Parameters: parameters
         );
 
-        _tools[toolAttr.Name] = new ToolInfo(descriptor, executeMethod);
+        _tools[toolAttr.Name] = new ToolInfo(descriptor, executeMethod, toolInstance);
     }
 
     public IReadOnlyList<ToolDescriptor> GetDescriptors() => _tools.Values.Select(t => t.Descriptor).ToList();
@@ -105,7 +112,9 @@ public class ToolRegistry
 
         }
 
-        var result = method.Invoke(null, args);
+        // Invoke on instance (or null for static methods)
+        var instance = method.IsStatic ? null : toolInfo.Instance;
+        var result = method.Invoke(instance, args);
         return result?.ToString() ?? string.Empty;
     }
 
@@ -134,6 +143,6 @@ public class ToolRegistry
         };
     }
 
-    private record ToolInfo(ToolDescriptor Descriptor, MethodInfo Method);
+    private record ToolInfo(ToolDescriptor Descriptor, MethodInfo Method, object Instance);
 }
 

@@ -1,16 +1,16 @@
 using AgentCore.Tools.Attributes;
 
-namespace AgentTools;
+namespace SimpleAgent.Tools;
 
 /// <summary>
 /// Tool that rolls a dice with a specified number of sides.
 /// </summary>
 [Tool("roll_dice", Description = "Rolls a dice with the specified number of sides and returns the result")]
-public static class RollDiceTool
+public class RollDiceTool
 {
-    private static readonly Random _random = new();
+    private readonly Random _random = new();
 
-    public static string Execute(
+    public string Execute(
         [ToolParameter("The number of sides on the dice")] int sides = 6)
     {
         if (sides < 1)
