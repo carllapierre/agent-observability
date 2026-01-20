@@ -20,10 +20,12 @@ public sealed class OpenAIChatCompletionProvider : IChatCompletionProvider
     private readonly ChatClient _client;
     private readonly IAgentTelemetry _telemetry;
     private readonly string _model;
+    private readonly float _temperature;
 
     public OpenAIChatCompletionProvider(OpenAISettings settings, IAgentTelemetry telemetry)
     {
         _model = settings.Model;
+        _temperature = settings.Temperature;
         _client = new ChatClient(_model, settings.ApiKey);
         _telemetry = telemetry;
     }
@@ -37,13 +39,14 @@ public sealed class OpenAIChatCompletionProvider : IChatCompletionProvider
         {
             Provider = "openai",
             Model = _model,
-            Input = messages
+            Input = messages,
+            Temperature = _temperature
         });
 
         try
         {
             var openAIMessages = TranslateMessages(messages);
-            var options = CreateOptions(tools);
+            var options = CreateOptions(tools, _temperature);
 
             var completion = await _client.CompleteChatAsync(openAIMessages, options);
             var choice = completion.Value;
@@ -100,7 +103,8 @@ public sealed class OpenAIChatCompletionProvider : IChatCompletionProvider
         {
             Provider = "openai",
             Model = _model,
-            Input = messages
+            Input = messages,
+            Temperature = _temperature
         });
 
         try
@@ -112,6 +116,7 @@ public sealed class OpenAIChatCompletionProvider : IChatCompletionProvider
 
             var options = new ChatCompletionOptions
             {
+                Temperature = _temperature,
                 ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
                     schemaName,
                     BinaryData.FromString(schema),
@@ -194,12 +199,15 @@ public sealed class OpenAIChatCompletionProvider : IChatCompletionProvider
         return new ToolChatMessage(msg.ToolCallId!, msg.Content);
     }
 
-    private static ChatCompletionOptions? CreateOptions(IReadOnlyList<ToolDescriptor>? tools)
+    private static ChatCompletionOptions CreateOptions(IReadOnlyList<ToolDescriptor>? tools, float temperature)
     {
-        if (tools is null || tools.Count == 0)
-            return null;
+        var options = new ChatCompletionOptions
+        {
+            Temperature = temperature
+        };
 
-        var options = new ChatCompletionOptions();
+        if (tools is null || tools.Count == 0)
+            return options;
 
         foreach (var tool in tools)
         {

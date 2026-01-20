@@ -21,7 +21,7 @@ public static class EvaluateRunCommand
 
         var runOption = new Option<string?>(
             aliases: ["--run", "-r"],
-            description: "The name of the run to evaluate");
+            description: "The name of the run to evaluate (defaults to most recent run)");
 
         var evaluatorsOption = new Option<string?>(
             aliases: ["--evaluators", "-e"],
@@ -59,10 +59,31 @@ public static class EvaluateRunCommand
                 Console.WriteLine("Error: --dataset is required.");
                 return;
             }
-            if (string.IsNullOrWhiteSpace(run))
+
+            // Create client early - needed for fetching latest run
+            var client = new LangfuseClient(new LangfuseClientOptions
             {
-                Console.WriteLine("Error: --run is required.");
-                return;
+                PublicKey = langfuseSettings.PublicKey,
+                SecretKey = langfuseSettings.SecretKey,
+                BaseUrl = langfuseSettings.BaseUrl
+            });
+
+            // If no run specified, get the most recent one
+            var runName = run;
+            if (string.IsNullOrWhiteSpace(runName))
+            {
+                Console.WriteLine($"Fetching latest run for dataset '{dataset}'...");
+                var runs = await client.GetDatasetRunsAsync(dataset, page: 1, limit: 1);
+                
+                if (runs.Data == null || runs.Data.Count == 0)
+                {
+                    Console.WriteLine($"Error: No runs found for dataset '{dataset}'.");
+                    return;
+                }
+
+                runName = runs.Data[0].Name;
+                Console.WriteLine($"Using latest run: {runName}");
+                Console.WriteLine();
             }
 
             // Get evaluators
@@ -79,22 +100,15 @@ public static class EvaluateRunCommand
                 return;
             }
 
-            Console.WriteLine($"Evaluating run '{run}' on dataset '{dataset}'...");
+            Console.WriteLine($"Evaluating run '{runName}' on dataset '{dataset}'...");
             Console.WriteLine($"Evaluators: {string.Join(", ", evaluators.Select(e => e.Name))}");
             Console.WriteLine();
-
-            var client = new LangfuseClient(new LangfuseClientOptions
-            {
-                PublicKey = langfuseSettings.PublicKey,
-                SecretKey = langfuseSettings.SecretKey,
-                BaseUrl = langfuseSettings.BaseUrl
-            });
 
             var evaluationRunner = new EvaluationRunner(client, evaluators);
 
             var result = await evaluationRunner.EvaluateRunAsync(
                 datasetName: dataset,
-                runName: run,
+                runName: runName,
                 onProgress: progress =>
                 {
                     Console.WriteLine($"[{progress.Current}/{progress.Total}] Evaluating trace {progress.TraceId}");

@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="OpenAI" Version="2.7.0" />
-    <PackageReference Include="Langfuse.Client" Version="1.4.0" />
+    <PackageReference Include="Langfuse.Client" Version="1.4.1" />
   </ItemGroup>
 
   <ItemGroup>

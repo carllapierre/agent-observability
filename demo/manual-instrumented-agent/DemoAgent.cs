@@ -145,11 +145,16 @@ public class DemoAgent : IAgent
         var reasoningPrompt = _promptProvider.GetPrompt("reasoning",
             new Dictionary<string, string> { ["tools"] = _tools.FormatAsText() });
 
-        // Build reasoning context: system prompt + history converted to text format
+        // Build combined system prompt: original system + reasoning instructions
+        var combinedSystemPrompt = string.IsNullOrEmpty(_systemPrompt)
+            ? reasoningPrompt ?? "Think step by step about how to approach this request."
+            : $"{_systemPrompt}\n\n{reasoningPrompt}";
+
+        // Build reasoning context: combined system prompt + history converted to text format
         var reasoningHistory = workingHistory
             .Where(m => m.Role != ChatRole.System)
             .ToTextFormat()
-            .Prepend(new ChatMessage(ChatRole.System, reasoningPrompt ?? "Think step by step about how to approach this request."))
+            .Prepend(new ChatMessage(ChatRole.System, combinedSystemPrompt))
             .ToList();
 
         // Use structured outputs - returns typed ReasoningResult
