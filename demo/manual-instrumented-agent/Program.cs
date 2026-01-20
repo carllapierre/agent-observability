@@ -38,7 +38,7 @@ var rootCommand = new RootCommand("Demo Agent CLI - Interactive chat and experim
 // Add subcommands
 rootCommand.AddCommand(ChatCommand.Create(openAISettings, langfuseSettings, tavilySettings, cliSettings));
 rootCommand.AddCommand(RunExperimentCommand.Create(openAISettings, langfuseSettings, tavilySettings));
-rootCommand.AddCommand(EvaluateRunCommand.Create(langfuseSettings));
+rootCommand.AddCommand(EvaluateRunCommand.Create(langfuseSettings, openAISettings));
 
 // Default behavior: run chat if no command specified
 rootCommand.SetHandler(async () =>

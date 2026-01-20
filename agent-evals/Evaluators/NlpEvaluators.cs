@@ -164,7 +164,7 @@ public static class NlpEvaluatorRegistration
     /// <summary>
     /// Registers all NLP evaluators with the EvaluatorRegistry.
     /// </summary>
-    public static void Register()
+    public static void RegisterAll()
     {
         if (_registered) return;
 

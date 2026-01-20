@@ -16,5 +16,6 @@ public enum Route
 /// </summary>
 public record ReasoningResult(
     string Reasoning,
+    string SuggestedToolCalls,
     Route Route
 );

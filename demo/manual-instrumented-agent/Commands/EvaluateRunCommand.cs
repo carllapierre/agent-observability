@@ -1,4 +1,6 @@
 using System.CommandLine;
+using AgentCore.Providers.ChatCompletion.OpenAI;
+using AgentCore.Providers.Prompt;
 using AgentCore.Settings;
 using AgentEvals.Evaluators;
 using AgentEvals.Services;
@@ -11,7 +13,7 @@ namespace SimpleAgent.Commands;
 /// </summary>
 public static class EvaluateRunCommand
 {
-    public static Command Create(LangfuseSettings langfuseSettings)
+    public static Command Create(LangfuseSettings langfuseSettings, OpenAISettings openAISettings)
     {
         var command = new Command("evaluate", "Evaluate a dataset run and submit scores to Langfuse");
 
@@ -39,8 +41,32 @@ public static class EvaluateRunCommand
         command.SetHandler(async (dataset, run, evaluatorsStr, listEvaluators) =>
         {
             // Register built-in evaluators
-            NlpEvaluatorRegistration.Register();
+            NlpEvaluatorRegistration.RegisterAll();
             TrajectoryEvaluatorRegistration.RegisterAll();
+
+            // Register LLM-as-a-Judge evaluators (Triad) with telemetry
+            var telemetry = new AgentTelemetry.Services.AgentTelemetry();
+            var judgeProvider = new OpenAIChatCompletionProvider(openAISettings, telemetry);
+            var judge = new LLMAsAJudge(judgeProvider);
+            var promptProvider = new LangfusePromptProvider(langfuseSettings);
+            
+            var answerRelevancePrompt = promptProvider.GetPrompt("eval-triad-answer-relevance");
+            if (!string.IsNullOrEmpty(answerRelevancePrompt))
+            {
+                TriadEvaluatorRegistration.RegisterAnswerRelevance(judge, answerRelevancePrompt);
+            }
+
+            var contextRelevancePrompt = promptProvider.GetPrompt("eval-triad-context-relevance");
+            if (!string.IsNullOrEmpty(contextRelevancePrompt))
+            {
+                TriadEvaluatorRegistration.RegisterContextRelevance(judge, contextRelevancePrompt);
+            }
+
+            var groundednessPrompt = promptProvider.GetPrompt("eval-triad-groundedness");
+            if (!string.IsNullOrEmpty(groundednessPrompt))
+            {
+                TriadEvaluatorRegistration.RegisterGroundedness(judge, groundednessPrompt);
+            }
 
             // Handle --list-evaluators
             if (listEvaluators)
@@ -86,12 +112,15 @@ public static class EvaluateRunCommand
                 Console.WriteLine();
             }
 
-            // Get evaluators
-            var evaluators = string.IsNullOrWhiteSpace(evaluatorsStr)
-                ? EvaluatorRegistry.GetAll().ToList()
-                : EvaluatorRegistry.GetFromString(evaluatorsStr).ToList();
+            // Get evaluators (both single and multi)
+            var (evaluators, multiEvaluators) = string.IsNullOrWhiteSpace(evaluatorsStr)
+                ? (EvaluatorRegistry.GetAll().ToList(), EvaluatorRegistry.GetAllMulti().ToList())
+                : EvaluatorRegistry.GetFromString(evaluatorsStr);
+            
+            var singleList = evaluators.ToList();
+            var multiList = multiEvaluators.ToList();
 
-            if (evaluators.Count == 0)
+            if (singleList.Count == 0 && multiList.Count == 0)
             {
                 Console.WriteLine("No evaluators selected or available.");
                 Console.WriteLine();
@@ -100,11 +129,12 @@ public static class EvaluateRunCommand
                 return;
             }
 
+            var allEvaluatorNames = singleList.Select(e => e.Name).Concat(multiList.Select(e => e.Name));
             Console.WriteLine($"Evaluating run '{runName}' on dataset '{dataset}'...");
-            Console.WriteLine($"Evaluators: {string.Join(", ", evaluators.Select(e => e.Name))}");
+            Console.WriteLine($"Evaluators: {string.Join(", ", allEvaluatorNames)}");
             Console.WriteLine();
 
-            var evaluationRunner = new EvaluationRunner(client, evaluators);
+            var evaluationRunner = new EvaluationRunner(client, singleList, multiList);
 
             var result = await evaluationRunner.EvaluateRunAsync(
                 datasetName: dataset,

@@ -13,11 +13,18 @@ public class EvaluationRunner
 {
     private readonly LangfuseClient _client;
     private readonly IReadOnlyList<IEvaluator> _evaluators;
+    private readonly IReadOnlyList<IMultiEvaluator> _multiEvaluators;
 
     public EvaluationRunner(LangfuseClient client, IEnumerable<IEvaluator> evaluators)
+        : this(client, evaluators, Enumerable.Empty<IMultiEvaluator>())
+    {
+    }
+
+    public EvaluationRunner(LangfuseClient client, IEnumerable<IEvaluator> evaluators, IEnumerable<IMultiEvaluator> multiEvaluators)
     {
         _client = client;
         _evaluators = evaluators.ToList();
+        _multiEvaluators = multiEvaluators.ToList();
     }
 
     /// <summary>
@@ -74,21 +81,42 @@ public class EvaluationRunner
 
             var itemResults = new List<EvaluationResult>();
 
-            // Run each evaluator
+            var context = new EvaluationContext(
+                DatasetItem: datasetItem,
+                Trace: trace
+            );
+
+            // Run each single-result evaluator
             foreach (var evaluator in _evaluators)
             {
                 try
                 {
-                    var context = new EvaluationContext(
-                        DatasetItem: datasetItem,
-                        Trace: trace
-                    );
-
                     var result = await evaluator.EvaluateAsync(context);
                     itemResults.Add(result);
 
                     // Submit score to Langfuse
                     await SubmitScoreAsync(runItem.TraceId, result);
+                }
+                catch (Exception ex)
+                {
+                    itemResults.Add(new EvaluationResult(
+                        ScoreName: evaluator.Name,
+                        Comment: $"Evaluation failed: {ex.Message}"
+                    ));
+                }
+            }
+
+            // Run each multi-result evaluator
+            foreach (var evaluator in _multiEvaluators)
+            {
+                try
+                {
+                    var multiResults = await evaluator.EvaluateAsync(context);
+                    foreach (var result in multiResults)
+                    {
+                        itemResults.Add(result);
+                        await SubmitScoreAsync(runItem.TraceId, result);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -110,7 +138,7 @@ public class EvaluationRunner
             DatasetName: datasetName,
             RunName: runName,
             TotalItems: runItems.Count,
-            EvaluatorsRun: _evaluators.Count,
+            EvaluatorsRun: _evaluators.Count + _multiEvaluators.Count,
             Duration: DateTime.UtcNow - startTime,
             Items: results
         );
@@ -165,21 +193,42 @@ public class EvaluationRunner
 
             var itemResults = new List<EvaluationResult>();
 
-            // Run each evaluator
+            var context = new EvaluationContext(
+                DatasetItem: datasetItem,
+                Trace: trace
+            );
+
+            // Run each single-result evaluator
             foreach (var evaluator in _evaluators)
             {
                 try
                 {
-                    var context = new EvaluationContext(
-                        DatasetItem: datasetItem,
-                        Trace: trace
-                    );
-
                     var result = await evaluator.EvaluateAsync(context);
                     itemResults.Add(result);
 
                     // Submit score to Langfuse
                     await SubmitScoreAsync(expItem.TraceId!, result);
+                }
+                catch (Exception ex)
+                {
+                    itemResults.Add(new EvaluationResult(
+                        ScoreName: evaluator.Name,
+                        Comment: $"Evaluation failed: {ex.Message}"
+                    ));
+                }
+            }
+
+            // Run each multi-result evaluator
+            foreach (var evaluator in _multiEvaluators)
+            {
+                try
+                {
+                    var multiResults = await evaluator.EvaluateAsync(context);
+                    foreach (var result in multiResults)
+                    {
+                        itemResults.Add(result);
+                        await SubmitScoreAsync(expItem.TraceId!, result);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -201,7 +250,7 @@ public class EvaluationRunner
             DatasetName: experimentResult.DatasetName,
             RunName: experimentResult.RunName,
             TotalItems: experimentItems.Count,
-            EvaluatorsRun: _evaluators.Count,
+            EvaluatorsRun: _evaluators.Count + _multiEvaluators.Count,
             Duration: DateTime.UtcNow - startTime,
             Items: results
         );
@@ -215,7 +264,8 @@ public class EvaluationRunner
                 traceId: traceId,
                 name: result.ScoreName,
                 value: result.NumericValue.Value,
-                comment: result.Comment
+                comment: result.Comment,
+                observationId: result.ObservationId
             );
         }
         else if (result.BooleanValue.HasValue)
@@ -224,7 +274,8 @@ public class EvaluationRunner
                 traceId: traceId,
                 name: result.ScoreName,
                 value: result.BooleanValue.Value,
-                comment: result.Comment
+                comment: result.Comment,
+                observationId: result.ObservationId
             );
         }
         else if (!string.IsNullOrEmpty(result.StringValue))
@@ -233,8 +284,20 @@ public class EvaluationRunner
                 traceId: traceId,
                 name: result.ScoreName,
                 stringValue: result.StringValue,
-                comment: result.Comment
+                comment: result.Comment,
+                observationId: result.ObservationId
             );
+        }
+    }
+
+    /// <summary>
+    /// Submits multiple scores to Langfuse.
+    /// </summary>
+    private async Task SubmitScoresAsync(string traceId, IEnumerable<EvaluationResult> results)
+    {
+        foreach (var result in results)
+        {
+            await SubmitScoreAsync(traceId, result);
         }
     }
 }
