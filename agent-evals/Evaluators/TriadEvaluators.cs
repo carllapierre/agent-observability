@@ -104,7 +104,8 @@ public class TriadAnswerRelevanceEvaluator : TriadEvaluatorBase
 
 /// <summary>
 /// Triad Context Relevance Evaluator (Multi-retrieval).
-/// Evaluates whether each retrieved context chunk is relevant to the user's question.
+/// Evaluates whether each retrieved context chunk is relevant to the query sent to the retriever.
+/// Uses the retriever's input (the actual query) rather than the original user input.
 /// Produces per-observation scores plus an aggregated trace-level average.
 /// Template variables: {{query}}, {{context}}
 /// </summary>
@@ -137,7 +138,6 @@ public class TriadContextRelevanceEvaluator : IMultiEvaluator
             return results;
         }
 
-        var query = GetInputString(context);
         var scores = new List<int>();
         var comments = new List<string>();
 
@@ -145,8 +145,10 @@ public class TriadContextRelevanceEvaluator : IMultiEvaluator
         {
             try
             {
+                // Use the query that was actually sent to the retriever, not the original user input
+                var retrieverQuery = TraceHelpers.GetObservationInput(retriever);
                 var retrievedContext = TraceHelpers.GetObservationOutput(retriever);
-                var prompt = CompileTemplate(query, retrievedContext);
+                var prompt = CompileTemplate(retrieverQuery, retrievedContext);
                 var judgeResult = await _judge.EvaluateAsync(prompt);
 
                 scores.Add(judgeResult.Score);
@@ -156,7 +158,7 @@ public class TriadContextRelevanceEvaluator : IMultiEvaluator
                 results.Add(EvaluationResult.Boolean(
                     name: Name,
                     value: judgeResult.Score == 1,
-                    comment: judgeResult.Explanation,
+                    comment: $"[Query: {TruncateForComment(retrieverQuery)}] {judgeResult.Explanation}",
                     observationId: retriever.Id
                 ));
             }
@@ -195,19 +197,10 @@ public class TriadContextRelevanceEvaluator : IMultiEvaluator
         return prompt;
     }
 
-    private static string GetInputString(EvaluationContext context)
+    private static string TruncateForComment(string text, int maxLength = 50)
     {
-        var input = context.Input;
-        if (input == null) return string.Empty;
-
-        if (input is JsonElement jsonElement)
-        {
-            return jsonElement.ValueKind == JsonValueKind.String
-                ? jsonElement.GetString() ?? string.Empty
-                : jsonElement.GetRawText();
-        }
-
-        return input.ToString() ?? string.Empty;
+        if (string.IsNullOrEmpty(text)) return "(empty)";
+        return text.Length <= maxLength ? text : text[..maxLength] + "...";
     }
 }
 

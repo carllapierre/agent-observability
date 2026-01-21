@@ -141,7 +141,7 @@ public class DemoAgent : IAgent
     private async Task<ReasoningResult> ExecuteReasoningNode(List<ChatMessage> workingHistory)
     {
         using var node = _telemetry.StartChain("Reasoning", workingHistory);
-
+        
         var reasoningPrompt = _promptProvider.GetPrompt("reasoning",
             new Dictionary<string, string> { ["tools"] = _tools.FormatAsText() });
 
