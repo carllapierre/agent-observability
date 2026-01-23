@@ -14,4 +14,11 @@ public interface IAgent
     /// <param name="history">The conversation history (user and assistant messages)</param>
     /// <returns>The agent's response including content and telemetry metadata</returns>
     Task<AgentResponse> GetResponseAsync(IReadOnlyList<ChatMessage> history);
+
+    /// <summary>
+    /// Submits user feedback for a specific trace.
+    /// </summary>
+    /// <param name="traceId">The trace ID to attach feedback to</param>
+    /// <param name="comment">The user's feedback comment</param>
+    Task SubmitFeedbackAsync(string traceId, string comment);
 }

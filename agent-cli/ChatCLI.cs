@@ -14,12 +14,15 @@ public class ChatCLI
 {
     private readonly IAgent _agent;
     private readonly string[] _exitKeywords;
+    private readonly string[] _feedbackKeywords;
     private readonly List<ChatMessage> _history = [];
+    private string? _lastTraceId;
 
     public ChatCLI(IAgent agent, ICLISettings? settings = null)
     {
         _agent = agent;
         _exitKeywords = settings?.ExitKeywords ?? new[] { "exit" };
+        _feedbackKeywords = settings?.FeedbackKeywords ?? new[] { "bad" };
         
         // Show greeting message if provided
         if (!string.IsNullOrWhiteSpace(settings?.GreetingMessage))
@@ -47,6 +50,12 @@ public class ChatCLI
             {
                 break;
             }
+
+            if (IsFeedbackKeyword(userInput))
+            {
+                await HandleFeedbackAsync();
+                continue;
+            }
             
             await ProcessUserInputAsync(userInput);
         }
@@ -69,6 +78,9 @@ public class ChatCLI
                 MessageConstants.ThinkingMessage
             );
             
+            // Store trace ID for feedback
+            _lastTraceId = response.TraceId;
+            
             // Add assistant response to history
             _history.Add(new ChatMessage(ChatRole.Assistant, response.Content));
             
@@ -90,6 +102,45 @@ public class ChatCLI
     {
         return _exitKeywords.Any(keyword => 
             input.Equals(keyword, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool IsFeedbackKeyword(string input)
+    {
+        return _feedbackKeywords.Any(keyword => 
+            input.Equals(keyword, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task HandleFeedbackAsync()
+    {
+        if (string.IsNullOrEmpty(_lastTraceId))
+        {
+            AnsiConsole.MarkupLine($"[{ColorConstants.System}]No previous response to give feedback on.[/]");
+            AnsiConsole.WriteLine();
+            return;
+        }
+
+        var reason = AnsiConsole.Prompt(
+            new TextPrompt<string>($"[{ColorConstants.System}]Why was this response bad?[/] ")
+                .AllowEmpty());
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            AnsiConsole.MarkupLine($"[{ColorConstants.System}]Feedback cancelled.[/]");
+            AnsiConsole.WriteLine();
+            return;
+        }
+
+        try
+        {
+            await _agent.SubmitFeedbackAsync(_lastTraceId, reason);
+            AnsiConsole.MarkupLine($"[{ColorConstants.System}]Feedback submitted. Thank you![/]");
+            AnsiConsole.WriteLine();
+        }
+        catch (Exception ex)
+        {
+            AnsiConsole.MarkupLine($"[{ColorConstants.Error}]Failed to submit feedback: {ex.Message.EscapeMarkup()}[/]");
+            AnsiConsole.WriteLine();
+        }
     }
 }
 

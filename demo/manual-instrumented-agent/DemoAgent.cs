@@ -8,6 +8,7 @@ using AgentCore.Providers.ChatCompletion.OpenAI;
 using AgentCore.Providers.Prompt;
 using AgentCore.Settings;
 using AgentCore.Tools.Services;
+using Langfuse.Client;
 using SimpleAgent.Models;
 using SimpleAgent.Tools;
 
@@ -28,6 +29,7 @@ public class DemoAgent : IAgent
     private readonly IPromptProvider _promptProvider;
     private readonly IAgentTelemetry _telemetry;
     private readonly ToolRegistry _tools;
+    private readonly LangfuseClient _langfuseClient;
     private readonly string? _systemPrompt;
 
     public DemoAgent(OpenAISettings openAISettings, LangfuseSettings langfuseSettings, TavilySettings tavilySettings)
@@ -35,6 +37,12 @@ public class DemoAgent : IAgent
         _telemetry = new AgentTelemetry.Services.AgentTelemetry();
         _provider = new OpenAIChatCompletionProvider(openAISettings, _telemetry);
         _promptProvider = new LangfusePromptProvider(langfuseSettings);
+        _langfuseClient = new LangfuseClient(new LangfuseClientOptions
+        {
+            PublicKey = langfuseSettings.PublicKey,
+            SecretKey = langfuseSettings.SecretKey,
+            BaseUrl = langfuseSettings.BaseUrl
+        });
 
         // Register tools with their dependencies injected via constructors
         _tools = new ToolRegistry(
@@ -241,4 +249,19 @@ public class DemoAgent : IAgent
     /// Result from the tool node execution.
     /// </summary>
     private record ToolNodeResult(bool ToolsExecuted, string? Content);
+
+    /// <summary>
+    /// Submits user feedback for a specific trace.
+    /// </summary>
+    /// <param name="traceId">The trace ID to attach feedback to</param>
+    /// <param name="comment">The user's feedback comment</param>
+    public async Task SubmitFeedbackAsync(string traceId, string comment)
+    {
+        await _langfuseClient.CreateScoreAsync(
+            traceId: traceId,
+            name: "user-feedback",
+            value: 0,  // negative feedback
+            comment: comment
+        );
+    }
 }
