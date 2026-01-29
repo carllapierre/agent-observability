@@ -45,7 +45,7 @@ dotnet run -- evaluate --dataset "RetrievalDataset" --evaluators trajectory_stri
 The RAG triad evals are a set of 3 evals that tackle different aspects of retrieval augmented generation without solely relying on end results. We evaluate answer and context relevance as well as groundedness. 
 
 ```bash
-dotnet run -- evaluate --dataset "RetrievalDataset" --evaluators   triad-answer-relevance, triad-context-relevance, triad-groundedness
+dotnet run -- evaluate --dataset "RetrievalDataset" --evaluators   triad-answer-relevance,triad-context-relevance,triad-groundedness
 ```
 
 ## Eval 5: All of them!
